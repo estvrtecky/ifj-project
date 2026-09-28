@@ -15,6 +15,7 @@ token_t get_next_token(void)
 {
     token_t token;
 
+    size_t length = 0;
     char *str = calloc(256, 1);
     if (str == NULL)
         exit(99);
@@ -31,14 +32,12 @@ token_t get_next_token(void)
             if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
             {
                 state = STATE_F_ID;
-                char tmp[2] = {(char)c, '\0'};
-                strcat(str, tmp);
+                str[length++] = (char)c;
             }
             else if (c == '_')
             {
                 state = STATE_Q1;
-                char tmp[2] = {(char)c, '\0'};
-                strcat(str, tmp);
+                str[length++] = (char)c;
             }
             else if (c == EOF)
             {
@@ -51,8 +50,7 @@ token_t get_next_token(void)
         case STATE_F_ID:
             if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_')
             {
-                char tmp[2] = {(char)c, '\0'};
-                strcat(str, tmp);
+                str[length++] = (char)c;
             }
             else
             {
@@ -68,8 +66,7 @@ token_t get_next_token(void)
             if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_')
             {
                 state = STATE_F_ID;
-                char tmp[2] = {(char)c, '\0'};
-                strcat(str, tmp);
+                str[length++] = (char)c;
             }
             else
             {
