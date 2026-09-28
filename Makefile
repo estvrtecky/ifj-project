@@ -1,13 +1,50 @@
-CC=gcc
-CFLAGS=-std=16 -Wall -Werror -Wextra
+# Ak nie je nastavené predom inak používa sa prekladac gcc
+CC ?= gcc
 
-.PHONY: all test clean
+# Ak nieje predom nastavené inak používa sa štandart c11
+CSTD ?= -std=c11
 
-all:
-  mkdir -p build && cd build && cmake .. && cmake --build .
+# Flagy pri preklade
+CFLAGS ?= $(CSTD) -Wall -Werror -Wextra
 
-test:
-  mkdir -p build && cd build && cmake .. && cmake --build . && ./run_tests
+# Priečinky
+SRC_DIR := src
+BUILD_DIR := build
+TEST_DIR = tests
 
+# Meno .exe súboru
+TARGET := prekladac
+
+# Všetky .c súbory v src/
+SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
+
+# Zoznam .o súborov v build/ z .c v src/
+OBJS := $(SRC_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+
+# Prevencia pred fake calls
+.PHONY: build check build-check clean
+
+build: $(TARGET)
+
+# Pravidlo že najpr musia byť hotové všetky .o súbory
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS)
+
+# Pravidlo ak nie je build/ tak ho vytvorí
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+# Pravidlo že musí existovať build/ a doňho sa preložia .c súbory na .o
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Spustí testy
+#TODO urobiť špúšťanie a výpis testov
+check:
+
+# Spustí 
+build-check: check build
+
+# Vymaže build/ a .exe súbor
 clean:
-  rm -rf build
+	rm -rf $(BUILD_DIR) $TARGET
