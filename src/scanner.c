@@ -15,8 +15,9 @@ token_t get_next_token(void)
 {
     token_t token;
 
+    size_t capacity = 16;
     size_t length = 0;
-    char *str = calloc(256, 1);
+    char *str = calloc(capacity, 1);
     if (str == NULL)
         exit(99);
 
@@ -50,7 +51,21 @@ token_t get_next_token(void)
         case STATE_F_ID:
             if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_')
             {
+                if (length + 1 >= capacity)
+                {
+                    capacity *= 2;
+                    char *tmp = realloc(str, capacity);
+
+                    if (tmp == NULL)
+                    {
+                        free(str);
+                        exit(99);
+                    }
+
+                    str = tmp;
+                }
                 str[length++] = (char)c;
+                str[length] = '\0';
             }
             else
             {
