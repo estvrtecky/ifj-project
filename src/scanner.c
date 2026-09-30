@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -86,7 +87,7 @@ token_t get_next_token(void)
             break;
 
         case STATE_F_ID:
-            if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_')
+            if (isalnum(c) || c == '_')
             {
                 append_char(&str, &length, &capacity, (char)c);
             }
@@ -101,7 +102,7 @@ token_t get_next_token(void)
             break;
 
         case STATE_Q1:
-            if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_')
+            if (isalnum(c) || c == '_')
             {
                 state = STATE_F_ID;
                 str[length++] = (char)c;
@@ -131,7 +132,7 @@ token_t get_next_token(void)
             break;
 
         case STATE_F_INT:
-            if ('0' <= c && c <= '9')
+            if (isdigit(c))
             {
                 append_char(&str, &length, &capacity, (char)c);
             }
@@ -155,7 +156,7 @@ token_t get_next_token(void)
             break;
 
         case STATE_Q2:
-            if ('0' <= c && c <= '9')
+            if (isdigit(c))
             {
                 state = STATE_F_INT;
                 append_char(&str, &length, &capacity, (char)c);
@@ -169,7 +170,7 @@ token_t get_next_token(void)
             break;
 
         case STATE_Q_E:
-            if ('0' <= c && c <= '9')
+            if (isdigit(c))
             {
                 state = STATE_F_E;
                 append_char(&str, &length, &capacity, (char)c);
@@ -188,7 +189,7 @@ token_t get_next_token(void)
             break;
 
         case STATE_Q_E_SIGN:
-            if ('0' <= c && c <= '9')
+            if (isdigit(c))
             {
                 state = STATE_F_E;
                 append_char(&str, &length, &capacity, (char)c);
@@ -202,7 +203,7 @@ token_t get_next_token(void)
             break;
 
         case STATE_F_E:
-            if ('0' <= c && c < '9')
+            if (isdigit(c))
             {
                 append_char(&str, &length, &capacity, (char)c);
             }
@@ -221,7 +222,7 @@ token_t get_next_token(void)
             break;
 
         case STATE_Q3:
-            if ('0' <= c && c <= '9')
+            if (isdigit(c))
             {
                 state = STATE_F_E;
                 append_char(&str, &length, &capacity, (char)c);
