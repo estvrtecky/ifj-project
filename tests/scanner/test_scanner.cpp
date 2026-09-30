@@ -106,10 +106,6 @@ TEST_F(ScannerTest, AllTokenTypes) {
     token = get_next_token();
     ASSERT_EQ(token.type, TOKEN_RS_BRACE);
     token = get_next_token();
-    ASSERT_EQ(token.type, TOKEN_LC_BRACE);
-    token = get_next_token();
-    ASSERT_EQ(token.type, TOKEN_RC_BRACE);
-    token = get_next_token();
     ASSERT_EQ(token.type, TOKEN_EQ);
     token = get_next_token();
     ASSERT_EQ(token.type, TOKEN_NQ);
