@@ -32,7 +32,7 @@ typedef enum
     TOKEN_FOR,
     TOKEN_LIST,
     TOKEN_MATCH,
-    TOKEN_TYPE
+    TOKEN_TYPE,
 
     //Math operations
     TOKEN_ADD,
