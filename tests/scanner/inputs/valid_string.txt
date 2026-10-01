@@ -1,0 +1,7 @@
+"Hello"
+"World"
+"Aho\\j"
+"Formalne\njazyky"
+"a\"prekladace"
+"matema\rtika"
+"statisti\tka"
