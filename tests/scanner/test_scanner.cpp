@@ -142,5 +142,88 @@ TEST_F(ScannerTest, Error_at){
     token_t token = get_next_token();
     ASSERT_EQ(token.type, TOKEN_ERROR);
 }
-    
+
+TEST_F(ScannerTest, ValidInt){
+    open_input("inputs/valid_int.txt");
+    token_t token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_INT);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_INT);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_INT);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_INT);
+}
+
+TEST_F(ScannerTest, ValidDouble){
+    open_input("inputs/valid_double.txt");
+    token_t token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_DOUBLE);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_DOUBLE);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_DOUBLE);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_DOUBLE);
+}
+
+TEST_F(ScannerTest, ValidID){
+    open_input("inputs/valid_id.txt");
+    token_t token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ID);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ID);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ID);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ID);
+}
+
+TEST_F(ScannerTest, ValidString){
+    open_input("inputs/valid_string.txt");
+    token_t token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_STRING);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_STRING);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_STRING);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_STRING);
+}
+
+TEST_F(ScannerTest, InvalidInt){
+    open_input("inputs/invalid_int.txt");
+    token_t token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ERROR);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ERROR);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ERROR);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ERROR);
+}
+
+TEST_F(ScannerTest, InvalidDouble){
+    open_input("inputs/invalid_double.txt");
+    token_t token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ERROR);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ERROR);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ERROR);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ERROR);
+}
+
+TEST_F(ScannerTest, InvalidString){
+    open_input("inputs/invalid_string.txt");
+    token_t token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ERROR);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ERROR);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ERROR);
+    token = get_next_token();
+    ASSERT_EQ(token.type, TOKEN_ERROR);
+}
 
