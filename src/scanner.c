@@ -18,7 +18,16 @@ typedef enum
     STATE_Q_E_SIGN,
     STATE_Q3,
     STATE_Q_D,
-    STATE_F_D
+    STATE_F_D,
+    STATE_Q4,
+    STATE_Q5,
+    STATE_Q6,
+    STATE_Q7,
+    STATE_Q8,
+    STATE_Q9,
+    STATE_F_MULTI,
+    STATE_F_EMPTY,
+    STATE_F_STRING
 } state_t;
 
 static void append_char(char **str, size_t *length, size_t *capacity, char c)
@@ -83,6 +92,11 @@ token_t get_next_token(void)
             else if (c == '_')
             {
                 state = STATE_Q1;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else if (c == '"')
+            {
+                state = STATE_Q4;
                 append_char(&str, &length, &capacity, (char)c);
             }
             else if (c == EOF)
@@ -298,6 +312,65 @@ token_t get_next_token(void)
                 free(str);
                 return token;
             }
+            break;
+        case STATE_Q4:
+            if(c == '"')
+            {
+                state = STATE_F_EMPTY;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            break;
+        case STATE_F_EMPTY:
+            if(c == '"')
+            {
+                state = STATE_Q7;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            //we receive something other than ", move it back to START
+            else
+            {
+                ungetc(c, stdin);
+                state=STATE_START;
+            }
+            break;
+        case STATE_Q7:
+            if(c == '"')
+            {
+                state = STATE_Q8;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else
+            {
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            break;
+        case STATE_Q8:
+            if(c=='"')
+            {
+                state=STATE_Q9;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            //if we add anything that is not a ", we need to go back to STATE_Q7
+            else
+            {
+                state=STATE_Q7;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            break;
+        case STATE_Q9:
+            if(c == '"')
+            {
+                state=STATE_F_MULTI;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else{
+                state=STATE_Q7;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            break;
+        case STATE_F_MULTI:
+            state=STATE_START;
+            ungetc(c, stdin);
             break;
 
         default:
