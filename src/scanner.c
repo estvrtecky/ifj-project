@@ -30,6 +30,37 @@ typedef enum
     STATE_F_STRING
 } state_t;
 
+typedef struct
+{
+    const char *text;
+    token_type_t type;
+} keyword_t;
+
+static const keyword_t keywords[] = {
+    {"def", TOKEN_DEF},
+    {"do", TOKEN_DO},
+    {"Double", TOKEN_TYPE_DOUBLE},
+    {"else", TOKEN_ELSE},
+    {"if", TOKEN_IF},
+    {"import", TOKEN_IMPORT},
+    {"Int", TOKEN_TYPE_INT},
+    {"return", TOKEN_RETURN},
+    {"String", TOKEN_TYPE_STRING},
+    {"then", TOKEN_THEN},
+    {"Unit", TOKEN_TYPE_UNIT},
+    {"val", TOKEN_VAL},
+    {"var", TOKEN_VAR},
+    {"while", TOKEN_WHILE},
+    {"Boolean", TOKEN_TYPE_BOOLEAN},
+    {"case", TOKEN_CASE},
+    {"class", TOKEN_CLASS},
+    {"extension", TOKEN_EXTENSION},
+    {"for", TOKEN_FOR},
+    {"List", TOKEN_LIST},
+    {"match", TOKEN_MATCH},
+    {"type", TOKEN_TYPE},
+};
+
 static void append_char(char **str, size_t *length, size_t *capacity, char c)
 {
     if (*length + 1 >= *capacity)
@@ -48,6 +79,17 @@ static void append_char(char **str, size_t *length, size_t *capacity, char c)
 
     (*str)[(*length)++] = c;
     (*str)[*length] = '\0';
+}
+
+static token_type_t get_keyword(const char *str)
+{
+    for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++)
+    {
+        if (strcmp(str, keywords[i].text) == 0)
+            return keywords[i].type;
+    }
+
+    return TOKEN_ID;
 }
 
 token_t get_next_token(void)
@@ -115,9 +157,13 @@ token_t get_next_token(void)
             else
             {
                 ungetc(c, stdin);
-                // TODO: if str is keyword
-                token.type = TOKEN_ID;
-                token.attribute.s = str;
+                token.type = get_keyword(str);
+
+                if (token.type == TOKEN_ID)
+                    token.attribute.s = str;
+                else
+                    free(str);
+
                 return token;
             }
             break;
