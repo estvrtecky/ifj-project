@@ -27,7 +27,9 @@ typedef enum
     STATE_Q9,
     STATE_F_MULTI,
     STATE_F_EMPTY,
-    STATE_F_STRING
+    STATE_F_STRING,
+    STATE_F_LT,
+    STATE_F_GT
 } state_t;
 
 typedef struct
@@ -141,6 +143,14 @@ token_t get_next_token(void)
                 state = STATE_Q4;
                 append_char(&str, &length, &capacity, (char)c);
             }
+            else if (c == '<')
+            {
+                state = STATE_F_LT;
+            }
+            else if (c == '>')
+            {
+                state = STATE_F_GT;
+            }
             else if (c == '+')
             {
                 free(str);
@@ -169,6 +179,38 @@ token_t get_next_token(void)
             {
                 free(str);
                 token.type = TOKEN_EOF;
+                return token;
+            }
+            break;
+
+        case STATE_F_LT:
+            if (c == '=')
+            {
+                free(str);
+                token.type = TOKEN_LESS_EQ;
+                return token;
+            }
+            else
+            {
+                ungetc(c, stdin);
+                token.type = TOKEN_LESS;
+                free(str);
+                return token;
+            }
+            break;
+
+        case STATE_F_GT:
+            if (c == '=')
+            {
+                free(str);
+                token.type = TOKEN_MORE_EQ;
+                return token;
+            }
+            else
+            {
+                ungetc(c, stdin);
+                token.type = TOKEN_MORE;
+                free(str);
                 return token;
             }
             break;
