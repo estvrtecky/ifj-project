@@ -47,4 +47,4 @@ build-check: check build
 
 # Vymaže build/ a .exe súbor
 clean:
-	rm -rf $(BUILD_DIR) $TARGET
+	rm -rf $(BUILD_DIR) $(TARGET)
