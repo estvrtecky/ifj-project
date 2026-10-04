@@ -141,6 +141,30 @@ token_t get_next_token(void)
                 state = STATE_Q4;
                 append_char(&str, &length, &capacity, (char)c);
             }
+            else if (c == '+')
+            {
+                free(str);
+                token.type = TOKEN_ADD;
+                return token;
+            }
+            else if (c == '-')
+            {
+                free(str);
+                token.type = TOKEN_SUB;
+                return token;
+            }
+            else if (c == '*')
+            {
+                free(str);
+                token.type = TOKEN_MULTIPLY;
+                return token;
+            }
+            else if (c == '/')
+            {
+                free(str);
+                token.type = TOKEN_DIVIDE;
+                return token;
+            }
             else if (c == EOF)
             {
                 free(str);
