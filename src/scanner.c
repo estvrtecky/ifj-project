@@ -29,7 +29,9 @@ typedef enum
     STATE_F_EMPTY,
     STATE_F_STRING,
     STATE_F_LT,
-    STATE_F_GT
+    STATE_F_GT,
+    STATE_F_EQ,
+    STATE_Q_EXCLAMATION
 } state_t;
 
 typedef struct
@@ -143,6 +145,14 @@ token_t get_next_token(void)
                 state = STATE_Q4;
                 append_char(&str, &length, &capacity, (char)c);
             }
+            else if (c == '=')
+            {
+                state = STATE_F_EQ;
+            }
+            else if (c == '!')
+            {
+                state = STATE_Q_EXCLAMATION;
+            }
             else if (c == '<')
             {
                 state = STATE_F_LT;
@@ -180,6 +190,37 @@ token_t get_next_token(void)
                 free(str);
                 token.type = TOKEN_EOF;
                 return token;
+            }
+            break;
+
+        case STATE_F_EQ:
+            if (c == '=')
+            {
+                free(str);
+                token.type = TOKEN_EQ;
+                return token;
+            }
+            else
+            {
+                ungetc(c, stdin);
+                token.type = TOKEN_ASSIGN;
+                free(str);
+                return token;
+            }
+            break;
+
+        case STATE_Q_EXCLAMATION:
+            if (c == '=')
+            {
+                free(str);
+                token.type = TOKEN_NQ;
+                return token;
+            }
+            else
+            {
+                fprintf(stderr, "Unexpected character: %c", c);
+                free(str);
+                exit(1);
             }
             break;
 
