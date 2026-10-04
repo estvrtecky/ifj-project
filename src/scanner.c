@@ -5,6 +5,11 @@
 
 #include "scanner.h"
 
+//needed to know if we starting reading in new line
+bool new_line = true;
+
+
+
 typedef enum
 {
     STATE_START,
@@ -31,7 +36,9 @@ typedef enum
     STATE_F_LT,
     STATE_F_GT,
     STATE_F_EQ,
-    STATE_Q_EXCLAMATION
+    STATE_Q_EXCLAMATION,
+    STATE_AND,
+    STATE_OR
 } state_t;
 
 typedef struct
@@ -179,6 +186,7 @@ token_t get_next_token(void)
                 token.type = TOKEN_MULTIPLY;
                 return token;
             }
+            //to do add one line comment support
             else if (c == '/')
             {
                 free(str);
@@ -190,6 +198,27 @@ token_t get_next_token(void)
                 free(str);
                 token.type = TOKEN_EOF;
                 return token;
+            }
+            else if( c == ';')
+            {
+                free(str);
+                token.type=TOKEN_SEMICOLON;
+                return token;
+            }
+            else if( c == '&' )
+            {
+                state=STATE_AND;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else if( c == '|' )
+            {
+                state=STATE_OR;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else if( c == '\n')
+            {
+                //whenever scanner finds \n that ends new line, give info to start counting indent
+                new_line=true;
             }
             break;
 
@@ -478,6 +507,8 @@ token_t get_next_token(void)
             {
                 state = STATE_Q7;
                 append_char(&str, &length, &capacity, (char)c);
+                token.type=TOKEN_STRING;
+                return token;
             }
             //we receive something other than ", move it back to START
             else
@@ -513,19 +544,44 @@ token_t get_next_token(void)
         case STATE_Q9:
             if(c == '"')
             {
-                state=STATE_F_MULTI;
                 append_char(&str, &length, &capacity, (char)c);
+                token.type= TOKEN_STRING;
+                token.attribute.s = str;
+                free(str);
+                return token;
             }
             else{
                 state=STATE_Q7;
                 append_char(&str, &length, &capacity, (char)c);
             }
             break;
-        case STATE_F_MULTI:
-            state=STATE_START;
-            ungetc(c, stdin);
+        case STATE_AND:
+            if ( c == '&' ){
+                free(str);
+                token.type = TOKEN_AND;
+                return token;
+            }
+            else{
+                ungetc(c, stdin);
+                free(str);
+                token.type = TOKEN_ERROR;
+                return token;
+            }
             break;
-
+        case STATE_OR:
+            if ( c == '|' )
+            {
+                free(str);
+                token.type = TOKEN_OR;
+                return token;
+            }
+            else
+            {
+                free(str);
+                ungetc(c, stdin);
+                token.type=TOKEN_ERROR;
+                return token;
+            }
         default:
             break;
         }

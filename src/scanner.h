@@ -63,6 +63,7 @@ typedef enum
     TOKEN_ASSIGN,
     TOKEN_SEMICOLON,
     //Other
+    TOKEN_EOL,
     TOKEN_ERROR,
     TOKEN_EOF
 } token_type_t;
