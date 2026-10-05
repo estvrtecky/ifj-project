@@ -6,7 +6,13 @@
 #include "scanner.h"
 
 //needed to know if we starting reading in new line
-bool new_line = true;
+bool is_new_line = true; 
+//to track on which line scanner currently is
+int current_line=0;
+//to track how much whitespaces makes indent
+int ident_col_counter=0;
+//to track location of scanner as in collums
+int current_col=0;
 
 
 
@@ -38,7 +44,8 @@ typedef enum
     STATE_F_EQ,
     STATE_Q_EXCLAMATION,
     STATE_AND,
-    STATE_OR
+    STATE_OR,
+    STATE_IDENT
 } state_t;
 
 typedef struct
@@ -122,6 +129,19 @@ token_t get_next_token(void)
         switch (state)
         {
         case STATE_START:
+            if( is_new_line == true)
+            {
+                if( c == ' ' )
+                {
+                    ident_col_counter++;
+                    state=STATE_IDENT;
+                }
+                else if(c == '\t' )
+                {
+                    token.type=TOKEN_ERROR;
+                    return token;
+                }
+            }
             if (c == '0')
             {
                 state = STATE_F_ZERO;
@@ -218,7 +238,7 @@ token_t get_next_token(void)
             else if( c == '\n')
             {
                 //whenever scanner finds \n that ends new line, give info to start counting indent
-                new_line=true;
+                is_new_line=true;
             }
             break;
 
@@ -580,6 +600,20 @@ token_t get_next_token(void)
                 free(str);
                 ungetc(c, stdin);
                 token.type=TOKEN_ERROR;
+                return token;
+            }
+        case STATE_IDENT:
+            if( c == ' ' )
+            {
+                ident_col_counter++;
+            }
+            else
+            {
+                ungetc(c, stdin);
+                token.type= TOKEN_IDENT;
+                //we reset counter to zero
+                ident_col_counter=0;
+                //to do save somewhere value
                 return token;
             }
         default:

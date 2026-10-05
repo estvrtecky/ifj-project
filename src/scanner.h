@@ -59,6 +59,10 @@ typedef enum
     TOKEN_OR,
     TOKEN_NOT,
 
+    //Ident, unident
+    TOKEN_IDENT,
+    TOKEN_UNIDENT,
+    
     //Operations
     TOKEN_ASSIGN,
     TOKEN_SEMICOLON,
