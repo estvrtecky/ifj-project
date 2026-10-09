@@ -95,6 +95,6 @@ typedef struct{
 
 } scanner_t;
 
-token_t get_next_token(scanner_t scanner);
+token_t get_next_token(scanner_t *scanner);
 
 #endif
