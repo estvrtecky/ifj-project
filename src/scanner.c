@@ -114,7 +114,7 @@ static token_type_t get_keyword(const char *str)
 void init_scanner(scanner_t *scanner)
 {
     scanner->stack_capacity=10;
-    scanner->stack = malloc(scanner->stack_capacity*(int));
+    scanner->stack = malloc(scanner->stack_capacity*sizeof(int));
     if( scanner->stack == NULL )
     {
         exit(99);
@@ -123,14 +123,14 @@ void init_scanner(scanner_t *scanner)
     scanner->current_line=1;
     scanner->current_col=0;
     scanner->ident_columns=0;
-    scanner->stack_top_idx=0
+    scanner->stack_top_idx=0;
     for (int idx = 0; idx<scanner->stack_capacity; idx++)
     {
         scanner->stack[idx] = 0;
     }
 }
 
-void free_scanner(scanner *scanner)
+void free_scanner(scanner_t *scanner)
 {
     free(scanner->stack);
 }

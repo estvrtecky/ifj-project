@@ -60,7 +60,7 @@ typedef enum
     TOKEN_NOT,
 
     //Ident, unident
-    TOKEN_IDENT,
+    TOKEN_INDENT,
     TOKEN_UNIDENT,
     
     //Operations
@@ -91,9 +91,10 @@ typedef struct{
     int current_line;
     int current_col;
     int ident_columns;
-    int stack_top_idx=0
+    int stack_top_idx;
 
 } scanner_t;
+
 token_t get_next_token(scanner_t scanner);
 
 #endif
