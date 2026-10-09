@@ -69,6 +69,7 @@ typedef enum
     //Other
     TOKEN_EOL,
     TOKEN_ERROR,
+    TOKEN_NEW_LINE,
     TOKEN_EOF
 } token_type_t;
 
@@ -83,6 +84,16 @@ typedef struct
     } attribute;
 } token_t;
 
-token_t get_next_token(void);
+typedef struct{
+    int stack_capacity;
+    int *stack;
+    bool new_line_started;
+    int current_line;
+    int current_col;
+    int ident_columns;
+    int stack_top_idx=0
+
+} scanner_t;
+token_t get_next_token(scanner_t scanner);
 
 #endif

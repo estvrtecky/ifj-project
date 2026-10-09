@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "scanner.h"
 
@@ -110,7 +111,30 @@ static token_type_t get_keyword(const char *str)
     return TOKEN_ID;
 }
 
-token_t get_next_token(void)
+void init_scanner(scanner_t *scanner)
+{
+    scanner->stack_capacity=10;
+    scanner->stack = malloc(scanner->stack_capacity*(int));
+    if( scanner->stack == NULL )
+    {
+        exit(99);
+    }
+    scanner->new_line_started=true;
+    scanner->current_line=1;
+    scanner->current_col=0;
+    scanner->ident_columns=0;
+    scanner->stack_top_idx=0
+    for (int idx = 0; idx<scanner->stack_capacity; idx++)
+    {
+        scanner->stack[idx] = 0;
+    }
+}
+
+void free_scanner(scanner *scanner)
+{
+    free(scanner->stack);
+}
+token_t get_next_token(scanner_t *scanner)
 {
     token_t token;
 
@@ -133,7 +157,6 @@ token_t get_next_token(void)
             {
                 if( c == ' ' )
                 {
-                    ident_col_counter++;
                     state=STATE_IDENT;
                 }
                 else if(c == '\t' )
@@ -239,6 +262,8 @@ token_t get_next_token(void)
             {
                 //whenever scanner finds \n that ends new line, give info to start counting indent
                 is_new_line=true;
+                token.type = TOKEN_NEW_LINE;
+                return token;
             }
             break;
 
@@ -605,16 +630,46 @@ token_t get_next_token(void)
         case STATE_IDENT:
             if( c == ' ' )
             {
-                ident_col_counter++;
+                scanner->ident_columns++;
+                scanner->current_col++;
+            }
+            else if( c == '\t')
+            {
+                free_scanner(scanner);
+                token.type= TOKEN_ERROR;
+                return token;
             }
             else
             {
                 ungetc(c, stdin);
-                token.type= TOKEN_IDENT;
-                //we reset counter to zero
-                ident_col_counter=0;
-                //to do save somewhere value
-                return token;
+                scanner->new_line_started=false;
+                if(scanner->ident_columns > scanner->stack[scanner->stack_top_idx])
+                {
+                    scanner->ident_columns++;
+                    if(scanner->stack_top_idx == scanner->stack_capacity)
+                    {
+                        scanner->stack_capacity+=scanner->stack_capacity;
+                        scanner_t *tmp=realloc(scanner->stack, scanner->stack_capacity);
+                        if(tmp == NULL){
+                            free_scanner(scanner);
+                            exit(99);
+                        }
+                        scanner=tmp;
+                    }
+                    scanner->stack[scanner->stack_top_idx]=scanner->ident_columns;
+                    scanner->ident_columns=0;
+                    scanner->new_line_started=false;
+                    token.type=TOKEN_INDENT;
+                    return token;
+                }
+                else if(scanner->ident_columns < scanner->stack[scanner->stack_top_idx])
+                {
+                    //to do
+                }
+                else
+                {
+                    scanner->new_line_started=false;
+                }
             }
         default:
             break;
