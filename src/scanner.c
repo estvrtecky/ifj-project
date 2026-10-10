@@ -6,17 +6,6 @@
 
 #include "scanner.h"
 
-//needed to know if we starting reading in new line
-bool is_new_line = true; 
-//to track on which line scanner currently is
-int current_line=0;
-//to track how much whitespaces makes indent
-int ident_col_counter=0;
-//to track location of scanner as in collums
-int current_col=0;
-
-
-
 typedef enum
 {
     STATE_START,
@@ -46,7 +35,7 @@ typedef enum
     STATE_Q_EXCLAMATION,
     STATE_AND,
     STATE_OR,
-    STATE_IDENT
+    STATE_INDENT
 } state_t;
 
 typedef struct
@@ -153,16 +142,49 @@ token_t get_next_token(scanner_t *scanner)
         switch (state)
         {
         case STATE_START:
-            if( is_new_line == true)
+            if( scanner->new_line_started == true)
             {
                 if( c == ' ' )
                 {
-                    state=STATE_IDENT;
+                    state=STATE_INDENT;
                 }
                 else if(c == '\t' )
                 {
                     token.type=TOKEN_ERROR;
                     return token;
+                }
+                else
+                {
+                    ungetc(c, stdin);
+                    //future upgrade make this into function
+                    scanner->new_line_started=false;
+                    if(scanner->ident_columns > scanner->stack[scanner->stack_top_idx])
+                    {
+                        scanner->ident_columns++;
+                        if(scanner->stack_top_idx == scanner->stack_capacity)
+                        {
+                            scanner->stack_capacity+=scanner->stack_capacity;
+                            scanner_t *tmp=realloc(scanner->stack, scanner->stack_capacity);
+                            if(tmp == NULL){
+                                free_scanner(scanner);
+                                exit(99);
+                            }
+                            scanner=tmp;
+                        }
+                        scanner->stack[scanner->stack_top_idx]=scanner->ident_columns;
+                        scanner->ident_columns=0;
+                        scanner->new_line_started=false;
+                        token.type=TOKEN_INDENT;
+                        return token;
+                    }
+                    else if(scanner->ident_columns < scanner->stack[scanner->stack_top_idx])
+                    {
+                        //to do
+                    }
+                    else
+                    {
+                        scanner->new_line_started=false;
+                    }
                 }
             }
             if (c == '0')
@@ -261,7 +283,7 @@ token_t get_next_token(scanner_t *scanner)
             else if( c == '\n')
             {
                 //whenever scanner finds \n that ends new line, give info to start counting indent
-                is_new_line=true;
+                scanner->new_line_started=true;
                 token.type = TOKEN_NEW_LINE;
                 return token;
             }
@@ -627,7 +649,7 @@ token_t get_next_token(scanner_t *scanner)
                 token.type=TOKEN_ERROR;
                 return token;
             }
-        case STATE_IDENT:
+        case STATE_INDENT:
             if( c == ' ' )
             {
                 scanner->ident_columns++;
