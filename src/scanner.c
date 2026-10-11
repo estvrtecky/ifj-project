@@ -185,6 +185,12 @@ token_t get_next_token(void)
                 token.type = TOKEN_DIVIDE;
                 return token;
             }
+            else if (c == '\n')
+            {
+                free(str);
+                token.type = TOKEN_EOL;
+                return token;
+            }
             else if (c == EOF)
             {
                 free(str);
