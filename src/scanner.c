@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,6 +40,8 @@ typedef struct
     const char *text;
     token_type_t type;
 } keyword_t;
+
+static bool is_new_line = true;
 
 static const keyword_t keywords[] = {
     {"def", TOKEN_DEF},
@@ -115,6 +118,10 @@ token_t get_next_token(void)
         switch (state)
         {
         case STATE_START:
+            // Every char except space and \n turns off new line
+            if (c != ' ' && c != '\n')
+                is_new_line = false;
+
             if (c == '0')
             {
                 state = STATE_F_ZERO;
@@ -187,9 +194,13 @@ token_t get_next_token(void)
             }
             else if (c == '\n')
             {
-                free(str);
-                token.type = TOKEN_EOL;
-                return token;
+                if (!is_new_line)
+                {
+                    free(str);
+                    is_new_line = true;
+                    token.type = TOKEN_EOL;
+                    return token;
+                }
             }
             else if (c == EOF)
             {
