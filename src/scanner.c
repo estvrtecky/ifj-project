@@ -43,6 +43,9 @@ typedef struct
 } keyword_t;
 
 static bool is_new_line = true;
+static int indent_stack[256] = {0};
+static int stack_top = 0;
+static int pending_dedents = 0;
 
 static const keyword_t keywords[] = {
     {"def", TOKEN_DEF},
@@ -100,9 +103,47 @@ static token_type_t get_keyword(const char *str)
     return TOKEN_ID;
 }
 
+static bool is_indent_changed(int spaces, token_type_t *token_type)
+{
+    if (indent_stack[stack_top] < spaces)
+    {
+        indent_stack[++stack_top] = spaces;
+        *token_type = TOKEN_INDENT;
+        return true;
+    }
+    else if (spaces < indent_stack[stack_top])
+    {
+        int dedent_count = 0;
+        while (spaces < indent_stack[stack_top])
+        {
+            stack_top--;
+            dedent_count++;
+        }
+
+        if (indent_stack[stack_top] != spaces)
+        {
+            fprintf(stderr, "Inconsistent indentation\n");
+            exit(1);
+        }
+
+        pending_dedents = dedent_count - 1;
+        *token_type = TOKEN_DEDENT;
+        return true;
+    }
+
+    return false;
+}
+
 token_t get_next_token(void)
 {
     token_t token;
+
+    if (pending_dedents > 0)
+    {
+        pending_dedents--;
+        token.type = TOKEN_DEDENT;
+        return token;
+    }
 
     size_t capacity = 16;
     size_t length = 0;
@@ -121,10 +162,16 @@ token_t get_next_token(void)
         {
         case STATE_START:
             // Every char except space and \n turns off new line
-            if (is_new_line && c != ' ' && c != '\n')
+            if (is_new_line && c != ' ' && c != '\n' && c != EOF)
             {
-                fprintf(stderr, "{0} ");
                 is_new_line = false;
+
+                if (is_indent_changed(spaces, &token.type))
+                {
+                    ungetc(c, stdin);
+                    free(str);
+                    return token;
+                }
             }
 
             if (c == '0')
@@ -218,6 +265,21 @@ token_t get_next_token(void)
             else if (c == EOF)
             {
                 free(str);
+
+                if (!is_new_line)
+                {
+                    is_new_line = true;
+                    token.type = TOKEN_EOL;
+                    return token;
+                }
+
+                if (stack_top > 0)
+                {
+                    stack_top--;
+                    token.type = TOKEN_DEDENT;
+                    return token;
+                }
+
                 token.type = TOKEN_EOF;
                 return token;
             }
@@ -232,14 +294,25 @@ token_t get_next_token(void)
             {
                 spaces = 0;
             }
+            else if (c == EOF)
+            {
+                spaces = 0;
+                state = STATE_START;
+            }
             else
             {
                 ungetc(c, stdin);
-                free(str);
-                fprintf(stderr, "{%d} ", spaces);
                 is_new_line = false;
-                token.type = TOKEN_INDENT;
-                return token;
+
+                if (is_indent_changed(spaces, &token.type))
+                {
+                    free(str);
+                    return token;
+                }
+                else
+                {
+                    state = STATE_START;
+                }
             }
             break;
 
