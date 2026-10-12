@@ -9,6 +9,7 @@
 typedef enum
 {
     STATE_START,
+    STATE_F_SPACES,
     STATE_Q1,
     STATE_F_ID,
     STATE_F_ZERO,
@@ -110,6 +111,7 @@ token_t get_next_token(void)
         exit(99);
 
     state_t state = STATE_START;
+    int spaces = 0;
 
     while (1)
     {
@@ -120,7 +122,10 @@ token_t get_next_token(void)
         case STATE_START:
             // Every char except space and \n turns off new line
             if (is_new_line && c != ' ' && c != '\n')
+            {
+                fprintf(stderr, "{0} ");
                 is_new_line = false;
+            }
 
             if (c == '0')
             {
@@ -192,6 +197,14 @@ token_t get_next_token(void)
                 token.type = TOKEN_DIVIDE;
                 return token;
             }
+            else if (c == ' ')
+            {
+                if (is_new_line)
+                {
+                    spaces++;
+                    state = STATE_F_SPACES;
+                }
+            }
             else if (c == '\n')
             {
                 if (!is_new_line)
@@ -206,6 +219,26 @@ token_t get_next_token(void)
             {
                 free(str);
                 token.type = TOKEN_EOF;
+                return token;
+            }
+            break;
+
+        case STATE_F_SPACES:
+            if (c == ' ')
+            {
+                spaces++;
+            }
+            else if (c == '\n')
+            {
+                spaces = 0;
+            }
+            else
+            {
+                ungetc(c, stdin);
+                free(str);
+                fprintf(stderr, "{%d} ", spaces);
+                is_new_line = false;
+                token.type = TOKEN_INDENT;
                 return token;
             }
             break;

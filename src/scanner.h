@@ -64,6 +64,8 @@ typedef enum
     TOKEN_SEMICOLON,
     //Other
     TOKEN_ERROR,
+    TOKEN_INDENT,
+    TOKEN_DEDENT,
     TOKEN_EOL,
     TOKEN_EOF
 } token_type_t;
