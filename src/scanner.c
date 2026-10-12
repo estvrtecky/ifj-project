@@ -119,7 +119,7 @@ token_t get_next_token(void)
         {
         case STATE_START:
             // Every char except space and \n turns off new line
-            if (c != ' ' && c != '\n')
+            if (is_new_line && c != ' ' && c != '\n')
                 is_new_line = false;
 
             if (c == '0')
