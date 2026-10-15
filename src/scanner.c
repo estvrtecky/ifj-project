@@ -729,7 +729,7 @@ token_t get_next_token(void)
                 token.type = TOKEN_DIVIDE;
                 return token;
             }
-            else if( c = '*' )
+            else if( c == '*' )
             {
                 multiline_comment_openings_counter++;
                 state = STATE_MULTLINE_COMMENT;
@@ -745,7 +745,7 @@ token_t get_next_token(void)
                 state = STATE_COMMENT;
             }
             else {
-                ungetc(c, stdin);
+                state=STATE_START;
             }
             break;
         case STATE_MULTLINE_COMMENT:
@@ -762,6 +762,7 @@ token_t get_next_token(void)
             if ( c == '*')
             {
                 multiline_comment_openings_counter++;
+                state=STATE_MULTLINE_COMMENT;
             }
             else
             {
