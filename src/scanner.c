@@ -37,7 +37,12 @@ typedef enum
     STATE_Q_EXCLAMATION,
     STATE_AND,
     STATE_OR,
-    STATE_INDENT
+    STATE_INDENT,
+    STATE_SLASH,
+    STATE_COMMENT,
+    STATE_MULTLINE_COMMENT,
+    STATE_ML_BEGIN,
+    STATE_ML_END
 } state_t;
 
 typedef struct
@@ -47,9 +52,10 @@ typedef struct
 } keyword_t;
 
 static bool is_new_line = true;
-static int indent_stack[256] = {0};
+static int *indent_stack=NULL;
 static int stack_top = 0;
 static int pending_dedents = 0;
+static int multiline_comment_openings_counter=0;
 
 static const keyword_t keywords[] = {
     {"def", TOKEN_DEF},
@@ -158,6 +164,16 @@ token_t get_next_token(void)
     state_t state = STATE_START;
     int spaces = 0;
 
+    
+    if(indent_stack == NULL)
+    {
+        indent_stack = malloc(sizeof(int)*256);
+        if ( indent_stack == NULL)
+        {
+            exit(99);
+        }
+    }
+
     while (1)
     {
         int c = getchar();
@@ -245,9 +261,10 @@ token_t get_next_token(void)
             //to do add one line comment support
             else if (c == '/')
             {
-                free(str);
-                token.type = TOKEN_DIVIDE;
-                return token;
+                state = STATE_SLASH;
+                // free(str);
+                // token.type = TOKEN_DIVIDE;
+                // return token;
             }
             else if (c == ' ')
             {
@@ -307,8 +324,7 @@ token_t get_next_token(void)
             else if( c == '\n')
             {
                 //whenever scanner finds \n that ends new line, give info to start counting indent
-                scanner->new_line_started=true;
-                token.type = TOKEN_NEW_LINE;
+                token.type = TOKEN_EOL;
                 return token;
             }
             break;
@@ -704,50 +720,72 @@ token_t get_next_token(void)
                 token.type=TOKEN_ERROR;
                 return token;
             }
-        case STATE_INDENT:
-            if( c == ' ' )
+            break;
+        case STATE_SLASH:
+            if( c != '/')
             {
-                scanner->ident_columns++;
-                scanner->current_col++;
-            }
-            else if( c == '\t')
-            {
-                free_scanner(scanner);
-                token.type= TOKEN_ERROR;
+                ungetc(c, stdin);
+                free(str);
+                token.type = TOKEN_DIVIDE;
                 return token;
+            }
+            else if( c = '*' )
+            {
+                multiline_comment_openings_counter++;
+                state = STATE_MULTLINE_COMMENT;
             }
             else
             {
+                state = STATE_COMMENT;
+            }
+            break;
+        case STATE_COMMENT:
+            if (c != '\n' && c != EOF)
+            {
+                state = STATE_COMMENT;
+            }
+            else {
                 ungetc(c, stdin);
-                scanner->new_line_started=false;
-                if(scanner->ident_columns > scanner->stack[scanner->stack_top_idx])
+            }
+            break;
+        case STATE_MULTLINE_COMMENT:
+            if ( c == '*')
+            {
+                state=STATE_ML_END;
+            }
+            else if (c == '/')
+            {
+                state = STATE_ML_BEGIN;
+            }
+            break;
+        case STATE_ML_BEGIN:
+            if ( c == '*')
+            {
+                multiline_comment_openings_counter++;
+            }
+            else
+            {
+                state = STATE_MULTLINE_COMMENT;
+            }
+            break;
+        case STATE_ML_END:
+            if ( c == '/')
+            {
+                multiline_comment_openings_counter--;
+                if (multiline_comment_openings_counter == 0)
                 {
-                    scanner->ident_columns++;
-                    if(scanner->stack_top_idx == scanner->stack_capacity)
-                    {
-                        scanner->stack_capacity+=scanner->stack_capacity;
-                        scanner_t *tmp=realloc(scanner->stack, scanner->stack_capacity);
-                        if(tmp == NULL){
-                            free_scanner(scanner);
-                            exit(99);
-                        }
-                        scanner=tmp;
-                    }
-                    scanner->stack[scanner->stack_top_idx]=scanner->ident_columns;
-                    scanner->ident_columns=0;
-                    scanner->new_line_started=false;
-                    token.type=TOKEN_INDENT;
-                    return token;
-                }
-                else if(scanner->ident_columns < scanner->stack[scanner->stack_top_idx])
-                {
-                    //to do
+                    state = STATE_START;
                 }
                 else
                 {
-                    scanner->new_line_started=false;
+                    state=STATE_MULTLINE_COMMENT;
                 }
             }
+            else
+            {
+                state=STATE_MULTLINE_COMMENT;
+            }
+            break;
         default:
             break;
         }

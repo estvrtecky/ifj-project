@@ -58,10 +58,6 @@ typedef enum
     TOKEN_AND,
     TOKEN_OR,
     TOKEN_NOT,
-
-    //Ident, unident
-    TOKEN_INDENT,
-    TOKEN_UNIDENT,
     
     //Operations
     TOKEN_ASSIGN,
@@ -71,7 +67,6 @@ typedef enum
     TOKEN_ERROR,
     TOKEN_INDENT,
     TOKEN_DEDENT,
-    TOKEN_EOL,
     TOKEN_EOF
 } token_type_t;
 
@@ -86,17 +81,7 @@ typedef struct
     } attribute;
 } token_t;
 
-typedef struct{
-    int stack_capacity;
-    int *stack;
-    bool new_line_started;
-    int current_line;
-    int current_col;
-    int ident_columns;
-    int stack_top_idx;
 
-} scanner_t;
-
-token_t get_next_token(scanner_t *scanner);
+token_t get_next_token(void);
 
 #endif
