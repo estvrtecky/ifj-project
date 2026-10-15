@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +10,7 @@
 typedef enum
 {
     STATE_START,
+    STATE_F_SPACES,
     STATE_Q1,
     STATE_F_ID,
     STATE_F_ZERO,
@@ -43,6 +45,11 @@ typedef struct
     const char *text;
     token_type_t type;
 } keyword_t;
+
+static bool is_new_line = true;
+static int indent_stack[256] = {0};
+static int stack_top = 0;
+static int pending_dedents = 0;
 
 static const keyword_t keywords[] = {
     {"def", TOKEN_DEF},
@@ -100,32 +107,47 @@ static token_type_t get_keyword(const char *str)
     return TOKEN_ID;
 }
 
-void init_scanner(scanner_t *scanner)
+static bool is_indent_changed(int spaces, token_type_t *token_type)
 {
-    scanner->stack_capacity=10;
-    scanner->stack = malloc(scanner->stack_capacity*sizeof(int));
-    if( scanner->stack == NULL )
+    if (indent_stack[stack_top] < spaces)
     {
-        exit(99);
+        indent_stack[++stack_top] = spaces;
+        *token_type = TOKEN_INDENT;
+        return true;
     }
-    scanner->new_line_started=true;
-    scanner->current_line=1;
-    scanner->current_col=0;
-    scanner->ident_columns=0;
-    scanner->stack_top_idx=0;
-    for (int idx = 0; idx<scanner->stack_capacity; idx++)
+    else if (spaces < indent_stack[stack_top])
     {
-        scanner->stack[idx] = 0;
+        int dedent_count = 0;
+        while (spaces < indent_stack[stack_top])
+        {
+            stack_top--;
+            dedent_count++;
+        }
+
+        if (indent_stack[stack_top] != spaces)
+        {
+            fprintf(stderr, "Inconsistent indentation\n");
+            exit(1);
+        }
+
+        pending_dedents = dedent_count - 1;
+        *token_type = TOKEN_DEDENT;
+        return true;
     }
+
+    return false;
 }
 
-void free_scanner(scanner_t *scanner)
-{
-    free(scanner->stack);
-}
-token_t get_next_token(scanner_t *scanner)
+token_t get_next_token(void)
 {
     token_t token;
+
+    if (pending_dedents > 0)
+    {
+        pending_dedents--;
+        token.type = TOKEN_DEDENT;
+        return token;
+    }
 
     size_t capacity = 16;
     size_t length = 0;
@@ -134,6 +156,7 @@ token_t get_next_token(scanner_t *scanner)
         exit(99);
 
     state_t state = STATE_START;
+    int spaces = 0;
 
     while (1)
     {
@@ -142,51 +165,19 @@ token_t get_next_token(scanner_t *scanner)
         switch (state)
         {
         case STATE_START:
-            if( scanner->new_line_started == true)
+            // Every char except space and \n turns off new line
+            if (is_new_line && c != ' ' && c != '\n' && c != EOF)
             {
-                if( c == ' ' )
-                {
-                    state=STATE_INDENT;
-                }
-                else if(c == '\t' )
-                {
-                    token.type=TOKEN_ERROR;
-                    return token;
-                }
-                else
+                is_new_line = false;
+
+                if (is_indent_changed(spaces, &token.type))
                 {
                     ungetc(c, stdin);
-                    //future upgrade make this into function
-                    scanner->new_line_started=false;
-                    if(scanner->ident_columns > scanner->stack[scanner->stack_top_idx])
-                    {
-                        scanner->ident_columns++;
-                        if(scanner->stack_top_idx == scanner->stack_capacity)
-                        {
-                            scanner->stack_capacity+=scanner->stack_capacity;
-                            scanner_t *tmp=realloc(scanner->stack, scanner->stack_capacity);
-                            if(tmp == NULL){
-                                free_scanner(scanner);
-                                exit(99);
-                            }
-                            scanner=tmp;
-                        }
-                        scanner->stack[scanner->stack_top_idx]=scanner->ident_columns;
-                        scanner->ident_columns=0;
-                        scanner->new_line_started=false;
-                        token.type=TOKEN_INDENT;
-                        return token;
-                    }
-                    else if(scanner->ident_columns < scanner->stack[scanner->stack_top_idx])
-                    {
-                        //to do
-                    }
-                    else
-                    {
-                        scanner->new_line_started=false;
-                    }
+                    free(str);
+                    return token;
                 }
             }
+
             if (c == '0')
             {
                 state = STATE_F_ZERO;
@@ -258,9 +249,42 @@ token_t get_next_token(scanner_t *scanner)
                 token.type = TOKEN_DIVIDE;
                 return token;
             }
+            else if (c == ' ')
+            {
+                if (is_new_line)
+                {
+                    spaces++;
+                    state = STATE_F_SPACES;
+                }
+            }
+            else if (c == '\n')
+            {
+                if (!is_new_line)
+                {
+                    free(str);
+                    is_new_line = true;
+                    token.type = TOKEN_EOL;
+                    return token;
+                }
+            }
             else if (c == EOF)
             {
                 free(str);
+
+                if (!is_new_line)
+                {
+                    is_new_line = true;
+                    token.type = TOKEN_EOL;
+                    return token;
+                }
+
+                if (stack_top > 0)
+                {
+                    stack_top--;
+                    token.type = TOKEN_DEDENT;
+                    return token;
+                }
+
                 token.type = TOKEN_EOF;
                 return token;
             }
@@ -286,6 +310,37 @@ token_t get_next_token(scanner_t *scanner)
                 scanner->new_line_started=true;
                 token.type = TOKEN_NEW_LINE;
                 return token;
+            }
+            break;
+
+        case STATE_F_SPACES:
+            if (c == ' ')
+            {
+                spaces++;
+            }
+            else if (c == '\n')
+            {
+                spaces = 0;
+            }
+            else if (c == EOF)
+            {
+                spaces = 0;
+                state = STATE_START;
+            }
+            else
+            {
+                ungetc(c, stdin);
+                is_new_line = false;
+
+                if (is_indent_changed(spaces, &token.type))
+                {
+                    free(str);
+                    return token;
+                }
+                else
+                {
+                    state = STATE_START;
+                }
             }
             break;
 

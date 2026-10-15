@@ -69,7 +69,9 @@ typedef enum
     //Other
     TOKEN_EOL,
     TOKEN_ERROR,
-    TOKEN_NEW_LINE,
+    TOKEN_INDENT,
+    TOKEN_DEDENT,
+    TOKEN_EOL,
     TOKEN_EOF
 } token_type_t;
 
