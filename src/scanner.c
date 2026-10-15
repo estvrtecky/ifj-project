@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "scanner.h"
 
@@ -33,7 +34,10 @@ typedef enum
     STATE_F_LT,
     STATE_F_GT,
     STATE_F_EQ,
-    STATE_Q_EXCLAMATION
+    STATE_Q_EXCLAMATION,
+    STATE_AND,
+    STATE_OR,
+    STATE_INDENT
 } state_t;
 
 typedef struct
@@ -238,6 +242,7 @@ token_t get_next_token(void)
                 token.type = TOKEN_MULTIPLY;
                 return token;
             }
+            //to do add one line comment support
             else if (c == '/')
             {
                 free(str);
@@ -281,6 +286,29 @@ token_t get_next_token(void)
                 }
 
                 token.type = TOKEN_EOF;
+                return token;
+            }
+            else if( c == ';')
+            {
+                free(str);
+                token.type=TOKEN_SEMICOLON;
+                return token;
+            }
+            else if( c == '&' )
+            {
+                state=STATE_AND;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else if( c == '|' )
+            {
+                state=STATE_OR;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else if( c == '\n')
+            {
+                //whenever scanner finds \n that ends new line, give info to start counting indent
+                scanner->new_line_started=true;
+                token.type = TOKEN_NEW_LINE;
                 return token;
             }
             break;
@@ -601,6 +629,8 @@ token_t get_next_token(void)
             {
                 state = STATE_Q7;
                 append_char(&str, &length, &capacity, (char)c);
+                token.type=TOKEN_STRING;
+                return token;
             }
             //we receive something other than ", move it back to START
             else
@@ -636,19 +666,88 @@ token_t get_next_token(void)
         case STATE_Q9:
             if(c == '"')
             {
-                state=STATE_F_MULTI;
                 append_char(&str, &length, &capacity, (char)c);
+                token.type= TOKEN_STRING;
+                token.attribute.s = str;
+                free(str);
+                return token;
             }
             else{
                 state=STATE_Q7;
                 append_char(&str, &length, &capacity, (char)c);
             }
             break;
-        case STATE_F_MULTI:
-            state=STATE_START;
-            ungetc(c, stdin);
+        case STATE_AND:
+            if ( c == '&' ){
+                free(str);
+                token.type = TOKEN_AND;
+                return token;
+            }
+            else{
+                ungetc(c, stdin);
+                free(str);
+                token.type = TOKEN_ERROR;
+                return token;
+            }
             break;
-
+        case STATE_OR:
+            if ( c == '|' )
+            {
+                free(str);
+                token.type = TOKEN_OR;
+                return token;
+            }
+            else
+            {
+                free(str);
+                ungetc(c, stdin);
+                token.type=TOKEN_ERROR;
+                return token;
+            }
+        case STATE_INDENT:
+            if( c == ' ' )
+            {
+                scanner->ident_columns++;
+                scanner->current_col++;
+            }
+            else if( c == '\t')
+            {
+                free_scanner(scanner);
+                token.type= TOKEN_ERROR;
+                return token;
+            }
+            else
+            {
+                ungetc(c, stdin);
+                scanner->new_line_started=false;
+                if(scanner->ident_columns > scanner->stack[scanner->stack_top_idx])
+                {
+                    scanner->ident_columns++;
+                    if(scanner->stack_top_idx == scanner->stack_capacity)
+                    {
+                        scanner->stack_capacity+=scanner->stack_capacity;
+                        scanner_t *tmp=realloc(scanner->stack, scanner->stack_capacity);
+                        if(tmp == NULL){
+                            free_scanner(scanner);
+                            exit(99);
+                        }
+                        scanner=tmp;
+                    }
+                    scanner->stack[scanner->stack_top_idx]=scanner->ident_columns;
+                    scanner->ident_columns=0;
+                    scanner->new_line_started=false;
+                    token.type=TOKEN_INDENT;
+                    return token;
+                }
+                else if(scanner->ident_columns < scanner->stack[scanner->stack_top_idx])
+                {
+                    //to do
+                }
+                else
+                {
+                    scanner->new_line_started=false;
+                }
+            }
         default:
             break;
         }
