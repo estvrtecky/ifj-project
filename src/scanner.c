@@ -722,12 +722,9 @@ token_t get_next_token(void)
             }
             break;
         case STATE_SLASH:
-            if( c != '/')
+            if( c == '/')
             {
-                ungetc(c, stdin);
-                free(str);
-                token.type = TOKEN_DIVIDE;
-                return token;
+                state=STATE_COMMENT;
             }
             else if( c == '*' )
             {
@@ -736,7 +733,10 @@ token_t get_next_token(void)
             }
             else
             {
-                state = STATE_COMMENT;
+                ungetc(c, stdin);
+                free(str);
+                token.type = TOKEN_DIVIDE;
+                return token;
             }
             break;
         case STATE_COMMENT:
@@ -757,12 +757,21 @@ token_t get_next_token(void)
             {
                 state = STATE_ML_BEGIN;
             }
+            else if ( c == EOF)
+            {
+                token.type=TOKEN_ERROR;
+                return token;
+            }
             break;
         case STATE_ML_BEGIN:
             if ( c == '*')
             {
                 multiline_comment_openings_counter++;
                 state=STATE_MULTLINE_COMMENT;
+            }
+            else if (c == '/')
+            {
+                state=STATE_ML_BEGIN;
             }
             else
             {
@@ -776,6 +785,10 @@ token_t get_next_token(void)
                 if (multiline_comment_openings_counter == 0)
                 {
                     state = STATE_START;
+                }
+                else if( c == '*')
+                {
+                    state=STATE_ML_END;
                 }
                 else
                 {
