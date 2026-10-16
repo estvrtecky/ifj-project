@@ -62,6 +62,7 @@ typedef enum
     //Operations
     TOKEN_ASSIGN,
     TOKEN_SEMICOLON,
+    TOKEN_COLON,
     //Other
     TOKEN_EOL,
     TOKEN_ERROR,

@@ -285,9 +285,6 @@ token_t get_next_token(void)
             else if (c == '/')
             {
                 state = STATE_SLASH;
-                // free(str);
-                // token.type = TOKEN_DIVIDE;
-                // return token;
             }
             else if (c == ' ')
             {
@@ -296,6 +293,24 @@ token_t get_next_token(void)
                     spaces++;
                     state = STATE_F_SPACES;
                 }
+            }
+            else if( c == '(' )
+            {
+                free(str);
+                token.type=TOKEN_L_BRACE;
+                return token;
+            }
+            else if( c == ')' )
+            {
+                free(str);
+                token.type=TOKEN_R_BRACE;
+                return token;
+            }
+            else if ( c == ':' )
+            {
+                free(str);
+                token.type=TOKEN_COLON;
+                return token;
             }
             else if (c == '\n')
             {
