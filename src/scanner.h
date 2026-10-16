@@ -81,7 +81,10 @@ typedef struct
     } attribute;
 } token_t;
 
-
+/**
+ * @brief function returns one token
+ * @return function returns struct token
+ */
 token_t get_next_token(void);
 
 #endif

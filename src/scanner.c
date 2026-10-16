@@ -82,6 +82,14 @@ static const keyword_t keywords[] = {
     {"type", TOKEN_TYPE},
 };
 
+/**
+ * @brief function saves char to array
+ * @param str is array to which we save char
+ * @param lenght is current lenght of string
+ * @param capacity is capacity of array
+ * @param c is char we want to add
+ * @return char will be added to array
+ */
 static void append_char(char **str, size_t *length, size_t *capacity, char c)
 {
     if (*length + 1 >= *capacity)
@@ -102,6 +110,11 @@ static void append_char(char **str, size_t *length, size_t *capacity, char c)
     (*str)[*length] = '\0';
 }
 
+/**
+ * @brief function compares received token with type id and compares its value to find if it is not keyword
+ * @param str is string value of token
+ * @return token type which will be updated if str is keyword
+ */
 static token_type_t get_keyword(const char *str)
 {
     for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++)
@@ -113,6 +126,12 @@ static token_type_t get_keyword(const char *str)
     return TOKEN_ID;
 }
 
+/**
+ * @brief function return boolean value based on current indentation
+ * @param spaces is number of counted whitespaces in indentation
+ * @param token_type is type of token we indentify
+ * @return boolean
+ */
 static bool is_indent_changed(int spaces, token_type_t *token_type)
 {
     if (indent_stack[stack_top] < spaces)
@@ -144,6 +163,10 @@ static bool is_indent_changed(int spaces, token_type_t *token_type)
     return false;
 }
 
+/**
+ * @brief function returns one token
+ * @return function returns struct token
+ */
 token_t get_next_token(void)
 {
     token_t token;
