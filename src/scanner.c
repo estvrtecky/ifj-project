@@ -42,7 +42,8 @@ typedef enum
     STATE_COMMENT,
     STATE_MULTLINE_COMMENT,
     STATE_ML_BEGIN,
-    STATE_ML_END
+    STATE_ML_END,
+    STATE_F_DOT
 } state_t;
 
 typedef struct
@@ -234,7 +235,7 @@ token_t get_next_token(void)
             }
             else if (c == '.')
             {
-                state = STATE_Q_D;
+                state = STATE_F_DOT;
                 append_char(&str, &length, &capacity, (char)c);
             }
             else if (c == '_')
@@ -838,6 +839,22 @@ token_t get_next_token(void)
                 state=STATE_MULTLINE_COMMENT;
             }
             break;
+
+        case STATE_F_DOT:
+            if (isdigit(c))
+            {
+                state = STATE_F_D;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else
+            {
+                ungetc(c, stdin);
+                free(str);
+                token.type = TOKEN_DOT;
+                return token;
+            }
+            break;
+
         default:
             break;
         }

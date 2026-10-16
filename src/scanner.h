@@ -65,6 +65,7 @@ typedef enum
     TOKEN_COLON,
     //Other
     TOKEN_EOL,
+    TOKEN_DOT,
     TOKEN_ERROR,
     TOKEN_INDENT,
     TOKEN_DEDENT,
