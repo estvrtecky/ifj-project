@@ -22,6 +22,7 @@ typedef enum
     STATE_Q3,
     STATE_Q_D,
     STATE_F_D,
+    STATE_Q_D_UNDERSCORE,
     STATE_Q4,
     STATE_Q5,
     STATE_Q6,
@@ -551,6 +552,8 @@ token_t get_next_token(void)
                 state = STATE_F_INT;
                 append_char(&str, &length, &capacity, (char)c);
             }
+            else if (c == '_')
+                break;
             else
             {
                 fprintf(stderr, "Unexpected character: %c", c);
@@ -624,6 +627,8 @@ token_t get_next_token(void)
                 state = STATE_F_E;
                 append_char(&str, &length, &capacity, (char)c);
             }
+            else if (c == '_')
+                break;
             else
             {
                 fprintf(stderr, "Unexpected character: %c", c);
@@ -651,6 +656,8 @@ token_t get_next_token(void)
             {
                 append_char(&str, &length, &capacity, (char)c);
             }
+            else if (c == '_')
+                state = STATE_Q_D_UNDERSCORE;
             else if (c == 'e' || c == 'E')
             {
                 state = STATE_Q_E;
@@ -672,6 +679,23 @@ token_t get_next_token(void)
                 return token;
             }
             break;
+
+        case STATE_Q_D_UNDERSCORE:
+            if (isdigit(c))
+            {
+                state = STATE_F_D;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else if (c == '_')
+                break;
+            else
+            {
+                fprintf(stderr, "Unexpected character: %c", c);
+                free(str);
+                exit(1);
+            }
+            break;
+
         case STATE_Q4:
             if(c == '"')
             {
