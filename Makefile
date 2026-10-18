@@ -43,7 +43,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 check:
 
 # Runs build and tests
-build-check: check build
+build-check: build check
 
 # Deletes the build directory and the final executable
 clean:
