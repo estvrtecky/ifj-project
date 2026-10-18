@@ -1,50 +1,50 @@
-# Ak nie je nastavené predom inak používa sa prekladac gcc
+# If not set otherwise, the compiler used is gcc
 CC ?= gcc
 
-# Ak nieje predom nastavené inak používa sa štandart c11
+# If not set otherwise, the C standard used is c11
 CSTD ?= -std=c11
 
-# Flagy pri preklade
+# Default flags for the compiler
 CFLAGS ?= $(CSTD) -Wall -Werror -Wextra
 
-# Priečinky
+# Directories
 SRC_DIR := src
 BUILD_DIR := obj
 TEST_DIR = tests
 
-# Meno .exe súboru
+# Name of the final executable
 TARGET := prekladac
 
-# Všetky .c súbory v src/
+# List of .c files in src directory
 SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
 
-# Zoznam .o súborov v obj/ z .c v src/
+# List of .o files in obj directory corresponding to .c files in src directory
 OBJS := $(SRC_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-# Prevencia pred fake calls
+# Phony targets to avoid conflicts with files of the same name
 .PHONY: build check build-check clean
 
 build: $(TARGET)
 
-# Pravidlo že najpr musia byť hotové všetky .o súbory
+# Rule that the target depends on all .o files
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS)
 
-# Pravidlo ak nie je obj/ tak ho vytvorí
+# Rule to create the obj directory if it doesn't exist
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-# Pravidlo že musí existovať obj/ a doňho sa preložia .c súbory na .o
+# Rule that requires obj directory to exist and compiles .c files into .o files in it
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Spustí testy
-#TODO urobiť špúšťanie a výpis testov
+# Runs tests
+# TODO: Implement tests
 check:
 
-# Spustí 
+# Runs build and tests
 build-check: check build
 
-# Vymaže obj/ a .exe súbor
+# Deletes the build directory and the final executable
 clean:
 	rm -rf $(BUILD_DIR) $(TARGET)
