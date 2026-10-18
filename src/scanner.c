@@ -11,18 +11,25 @@ typedef enum
 {
     STATE_START,
     STATE_F_SPACES,
-    STATE_Q1,
+
+    // Identifier & keywords
+    STATE_Q_ID,
     STATE_F_ID,
+
+    // Integer literal
     STATE_F_ZERO,
     STATE_F_INT,
-    STATE_Q2,
-    STATE_Q_E,
-    STATE_F_E,
-    STATE_Q_E_SIGN,
-    STATE_Q3,
+    STATE_Q1,
+
+    // Floating-point literal
     STATE_Q_D,
     STATE_F_D,
-    STATE_Q_D_UNDERSCORE,
+    STATE_Q2,
+    STATE_Q_E,
+    STATE_Q_ES,
+    STATE_F_E,
+    STATE_Q3,
+
     STATE_Q4,
     STATE_Q5,
     STATE_Q6,
@@ -32,10 +39,13 @@ typedef enum
     STATE_F_MULTI,
     STATE_F_EMPTY,
     STATE_F_STRING,
+
+    // Operations & operators
+    STATE_F_ASSIGN,
     STATE_F_LT,
     STATE_F_GT,
-    STATE_F_EQ,
     STATE_Q_EXCLAMATION,
+
     STATE_AND,
     STATE_OR,
     STATE_INDENT,
@@ -241,29 +251,13 @@ token_t get_next_token(void)
             }
             else if (c == '_')
             {
-                state = STATE_Q1;
+                state = STATE_Q_ID;
                 append_char(&str, &length, &capacity, (char)c);
             }
             else if (c == '"')
             {
                 state = STATE_Q4;
                 append_char(&str, &length, &capacity, (char)c);
-            }
-            else if (c == '=')
-            {
-                state = STATE_F_EQ;
-            }
-            else if (c == '!')
-            {
-                state = STATE_Q_EXCLAMATION;
-            }
-            else if (c == '<')
-            {
-                state = STATE_F_LT;
-            }
-            else if (c == '>')
-            {
-                state = STATE_F_GT;
             }
             else if (c == '+')
             {
@@ -288,6 +282,14 @@ token_t get_next_token(void)
             {
                 state = STATE_SLASH;
             }
+            else if (c == '=')
+                state = STATE_F_ASSIGN;
+            else if (c == '<')
+                state = STATE_F_LT;
+            else if (c == '>')
+                state = STATE_F_GT;
+            else if (c == '!')
+                state = STATE_Q_EXCLAMATION;
             else if (c == ' ')
             {
                 if (is_new_line)
@@ -400,28 +402,12 @@ token_t get_next_token(void)
             }
             break;
 
-        case STATE_F_EQ:
-            if (c == '=')
+        // Identifier & keywords
+        case STATE_Q_ID:
+            if (isalnum(c) || c == '_')
             {
-                free(str);
-                token.type = TOKEN_EQ;
-                return token;
-            }
-            else
-            {
-                ungetc(c, stdin);
-                token.type = TOKEN_ASSIGN;
-                free(str);
-                return token;
-            }
-            break;
-
-        case STATE_Q_EXCLAMATION:
-            if (c == '=')
-            {
-                free(str);
-                token.type = TOKEN_NQ;
-                return token;
+                state = STATE_F_ID;
+                append_char(&str, &length, &capacity, (char)c);
             }
             else
             {
@@ -431,43 +417,9 @@ token_t get_next_token(void)
             }
             break;
 
-        case STATE_F_LT:
-            if (c == '=')
-            {
-                free(str);
-                token.type = TOKEN_LESS_EQ;
-                return token;
-            }
-            else
-            {
-                ungetc(c, stdin);
-                token.type = TOKEN_LESS;
-                free(str);
-                return token;
-            }
-            break;
-
-        case STATE_F_GT:
-            if (c == '=')
-            {
-                free(str);
-                token.type = TOKEN_MORE_EQ;
-                return token;
-            }
-            else
-            {
-                ungetc(c, stdin);
-                token.type = TOKEN_MORE;
-                free(str);
-                return token;
-            }
-            break;
-
         case STATE_F_ID:
             if (isalnum(c) || c == '_')
-            {
                 append_char(&str, &length, &capacity, (char)c);
-            }
             else
             {
                 ungetc(c, stdin);
@@ -482,20 +434,7 @@ token_t get_next_token(void)
             }
             break;
 
-        case STATE_Q1:
-            if (isalnum(c) || c == '_')
-            {
-                state = STATE_F_ID;
-                str[length++] = (char)c;
-            }
-            else
-            {
-                fprintf(stderr, "Unexpected character: %c", c);
-                free(str);
-                exit(1);
-            }
-            break;
-
+        // Integer literal
         case STATE_F_ZERO:
             if (c == '.')
             {
@@ -519,13 +458,9 @@ token_t get_next_token(void)
 
         case STATE_F_INT:
             if (isdigit(c))
-            {
                 append_char(&str, &length, &capacity, (char)c);
-            }
             else if (c == '_')
-            {
-                state = STATE_Q2;
-            }
+                state = STATE_Q1;
             else if (c == '.')
             {
                 state = STATE_Q_D;
@@ -546,7 +481,7 @@ token_t get_next_token(void)
             }
             break;
 
-        case STATE_Q2:
+        case STATE_Q1:
             if (isdigit(c))
             {
                 state = STATE_F_INT;
@@ -562,81 +497,7 @@ token_t get_next_token(void)
             }
             break;
 
-        case STATE_Q_E:
-            if (isdigit(c))
-            {
-                state = STATE_F_E;
-                append_char(&str, &length, &capacity, (char)c);
-            }
-            else if (c == '-' || c == '+')
-            {
-                state = STATE_Q_E_SIGN;
-                append_char(&str, &length, &capacity, (char)c);
-            }
-            else
-            {
-                fprintf(stderr, "Unexpected character: %c", c);
-                free(str);
-                exit(1);
-            }
-            break;
-
-        case STATE_Q_E_SIGN:
-            if (isdigit(c))
-            {
-                state = STATE_F_E;
-                append_char(&str, &length, &capacity, (char)c);
-            }
-            else
-            {
-                fprintf(stderr, "Unexpected character: %c", c);
-                free(str);
-                exit(1);
-            }
-            break;
-
-        case STATE_F_E:
-            if (isdigit(c))
-            {
-                append_char(&str, &length, &capacity, (char)c);
-            }
-            else if (c == 'd' || c == 'D')
-            {
-                token.type = TOKEN_DOUBLE;
-                token.attribute.d = strtod(str, NULL);
-                free(str);
-                return token;
-            }
-            else if (c == '_')
-            {
-                state = STATE_Q3;
-            }
-            else
-            {
-                ungetc(c, stdin);
-                token.type = TOKEN_DOUBLE;
-                token.attribute.d = strtod(str, NULL);
-                free(str);
-                return token;
-            }
-            break;
-
-        case STATE_Q3:
-            if (isdigit(c))
-            {
-                state = STATE_F_E;
-                append_char(&str, &length, &capacity, (char)c);
-            }
-            else if (c == '_')
-                break;
-            else
-            {
-                fprintf(stderr, "Unexpected character: %c", c);
-                free(str);
-                exit(1);
-            }
-            break;
-
+        // Floating-point literal
         case STATE_Q_D:
             if (isdigit(c))
             {
@@ -653,11 +514,9 @@ token_t get_next_token(void)
 
         case STATE_F_D:
             if (isdigit(c))
-            {
                 append_char(&str, &length, &capacity, (char)c);
-            }
             else if (c == '_')
-                state = STATE_Q_D_UNDERSCORE;
+                state = STATE_Q2;
             else if (c == 'e' || c == 'E')
             {
                 state = STATE_Q_E;
@@ -680,10 +539,81 @@ token_t get_next_token(void)
             }
             break;
 
-        case STATE_Q_D_UNDERSCORE:
+        case STATE_Q2:
             if (isdigit(c))
             {
                 state = STATE_F_D;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else if (c == '_')
+                break;
+            else
+            {
+                fprintf(stderr, "Unexpected character: %c", c);
+                free(str);
+                exit(1);
+            }
+            break;
+
+        case STATE_Q_E:
+            if (isdigit(c))
+            {
+                state = STATE_F_E;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else if (c == '-' || c == '+')
+            {
+                state = STATE_Q_ES;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else
+            {
+                fprintf(stderr, "Unexpected character: %c", c);
+                free(str);
+                exit(1);
+            }
+            break;
+
+        case STATE_Q_ES:
+            if (isdigit(c))
+            {
+                state = STATE_F_E;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else
+            {
+                fprintf(stderr, "Unexpected character: %c", c);
+                free(str);
+                exit(1);
+            }
+            break;
+
+        case STATE_F_E:
+            if (isdigit(c))
+                append_char(&str, &length, &capacity, (char)c);
+            else if (c == '_')
+                state = STATE_Q3;
+            else if (c == 'd' || c == 'D')
+            {
+                token.type = TOKEN_DOUBLE;
+                token.attribute.d = strtod(str, NULL);
+                free(str);
+                return token;
+            }
+            else
+            {
+                ungetc(c, stdin);
+                token.type = TOKEN_DOUBLE;
+                token.attribute.d = strtod(str, NULL);
+                free(str);
+                return token;
+            }
+            break;
+
+        case STATE_Q3:
+            if (isdigit(c))
+            {
+                state = STATE_F_E;
                 append_char(&str, &length, &capacity, (char)c);
             }
             else if (c == '_')
@@ -756,6 +686,55 @@ token_t get_next_token(void)
                 append_char(&str, &length, &capacity, (char)c);
             }
             break;
+        // Operations & operators
+        case STATE_F_ASSIGN:
+            if (c == '=')
+                token.type = TOKEN_EQ;
+            else
+            {
+                ungetc(c, stdin);
+                token.type = TOKEN_ASSIGN;
+            }
+
+            free(str);
+            return token;
+
+        case STATE_F_LT:
+            if (c == '=')
+                token.type = TOKEN_LESS_EQ;
+            else
+            {
+                ungetc(c, stdin);
+                token.type = TOKEN_LESS;
+            }
+
+            free(str);
+            return token;
+
+        case STATE_F_GT:
+            if (c == '=')
+                token.type = TOKEN_MORE_EQ;
+            else
+            {
+                ungetc(c, stdin);
+                token.type = TOKEN_MORE;
+            }
+
+            free(str);
+            return token;
+
+        case STATE_Q_EXCLAMATION:
+            free(str);
+
+            if (c == '=')
+            {
+                token.type = TOKEN_NQ;
+                return token;
+            }
+
+            fprintf(stderr, "Unexpected character: %c", c);
+            exit(1);
+
         case STATE_AND:
             if ( c == '&' ){
                 free(str);
