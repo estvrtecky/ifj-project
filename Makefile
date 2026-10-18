@@ -9,7 +9,7 @@ CFLAGS ?= $(CSTD) -Wall -Werror -Wextra
 
 # Priečinky
 SRC_DIR := src
-BUILD_DIR := build
+BUILD_DIR := obj
 TEST_DIR = tests
 
 # Meno .exe súboru
@@ -18,7 +18,7 @@ TARGET := prekladac
 # Všetky .c súbory v src/
 SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
 
-# Zoznam .o súborov v build/ z .c v src/
+# Zoznam .o súborov v obj/ z .c v src/
 OBJS := $(SRC_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
 # Prevencia pred fake calls
@@ -30,11 +30,11 @@ build: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS)
 
-# Pravidlo ak nie je build/ tak ho vytvorí
+# Pravidlo ak nie je obj/ tak ho vytvorí
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-# Pravidlo že musí existovať build/ a doňho sa preložia .c súbory na .o
+# Pravidlo že musí existovať obj/ a doňho sa preložia .c súbory na .o
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -45,6 +45,6 @@ check:
 # Spustí 
 build-check: check build
 
-# Vymaže build/ a .exe súbor
+# Vymaže obj/ a .exe súbor
 clean:
 	rm -rf $(BUILD_DIR) $(TARGET)
