@@ -10,7 +10,7 @@ CFLAGS ?= $(CSTD) -Wall -Werror -Wextra
 # Directories
 SRC_DIR := src
 BUILD_DIR := obj
-TEST_DIR = tests
+TEST_DIR := tests
 
 # Name of the final executable
 TARGET := prekladac
