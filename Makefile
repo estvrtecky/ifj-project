@@ -45,6 +45,14 @@ check:
 # Runs build and tests
 build-check: build check
 
+# Formats all source files
+format:
+	clang-format -i $(SRC_FILES)
+
+# Checks formatting without modifying files
+format-check:
+	clang-format --dry-run --Werror $(SRC_FILES)
+
 # Deletes the build directory and the final executable
 clean:
 	rm -rf $(BUILD_DIR) $(TARGET)
