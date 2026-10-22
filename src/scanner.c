@@ -63,10 +63,10 @@ typedef struct
 } keyword_t;
 
 static bool is_new_line = true;
-static int *indent_stack=NULL;
+static int *indent_stack = NULL;
 static int stack_top = 0;
 static int pending_dedents = 0;
-static int multiline_comment_openings_counter=0;
+static int multiline_comment_openings_counter = 0;
 
 static const keyword_t keywords[] = {
     {"def", TOKEN_DEF},
@@ -198,11 +198,10 @@ token_t get_next_token(void)
     state_t state = STATE_START;
     int spaces = 0;
 
-    
-    if(indent_stack == NULL)
+    if (indent_stack == NULL)
     {
-        indent_stack = malloc(sizeof(int)*256);
-        if ( indent_stack == NULL)
+        indent_stack = malloc(sizeof(int) * 256);
+        if (indent_stack == NULL)
         {
             exit(99);
         }
@@ -276,7 +275,7 @@ token_t get_next_token(void)
                 token.type = TOKEN_MUL;
                 return token;
             }
-            //to do add one line comment support
+            // to do add one line comment support
             else if (c == '/')
             {
                 state = STATE_SLASH;
@@ -824,11 +823,11 @@ token_t get_next_token(void)
             exit(1);
 
         case STATE_SLASH:
-            if( c == '/')
+            if (c == '/')
             {
-                state=STATE_COMMENT;
+                state = STATE_COMMENT;
             }
-            else if( c == '*' )
+            else if (c == '*')
             {
                 multiline_comment_openings_counter++;
                 state = STATE_MULTLINE_COMMENT;
@@ -846,34 +845,35 @@ token_t get_next_token(void)
             {
                 state = STATE_COMMENT;
             }
-            else {
-                state=STATE_START;
+            else
+            {
+                state = STATE_START;
             }
             break;
         case STATE_MULTLINE_COMMENT:
-            if ( c == '*')
+            if (c == '*')
             {
-                state=STATE_ML_END;
+                state = STATE_ML_END;
             }
             else if (c == '/')
             {
                 state = STATE_ML_BEGIN;
             }
-            else if ( c == EOF)
+            else if (c == EOF)
             {
-                token.type=TOKEN_ERROR;
+                token.type = TOKEN_ERROR;
                 return token;
             }
             break;
         case STATE_ML_BEGIN:
-            if ( c == '*')
+            if (c == '*')
             {
                 multiline_comment_openings_counter++;
-                state=STATE_MULTLINE_COMMENT;
+                state = STATE_MULTLINE_COMMENT;
             }
             else if (c == '/')
             {
-                state=STATE_ML_BEGIN;
+                state = STATE_ML_BEGIN;
             }
             else
             {
@@ -881,25 +881,25 @@ token_t get_next_token(void)
             }
             break;
         case STATE_ML_END:
-            if ( c == '/')
+            if (c == '/')
             {
                 multiline_comment_openings_counter--;
                 if (multiline_comment_openings_counter == 0)
                 {
                     state = STATE_START;
                 }
-                else if( c == '*')
+                else if (c == '*')
                 {
-                    state=STATE_ML_END;
+                    state = STATE_ML_END;
                 }
                 else
                 {
-                    state=STATE_MULTLINE_COMMENT;
+                    state = STATE_MULTLINE_COMMENT;
                 }
             }
             else
             {
-                state=STATE_MULTLINE_COMMENT;
+                state = STATE_MULTLINE_COMMENT;
             }
             break;
 
