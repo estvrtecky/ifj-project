@@ -273,7 +273,7 @@ token_t get_next_token(void)
             else if (c == '*')
             {
                 free(str);
-                token.type = TOKEN_MULTIPLY;
+                token.type = TOKEN_MUL;
                 return token;
             }
             //to do add one line comment support
@@ -304,13 +304,13 @@ token_t get_next_token(void)
             else if( c == '(' )
             {
                 free(str);
-                token.type=TOKEN_L_BRACE;
+                token.type = TOKEN_L_PAREN;
                 return token;
             }
             else if( c == ')' )
             {
                 free(str);
-                token.type=TOKEN_R_BRACE;
+                token.type = TOKEN_R_PAREN;
                 return token;
             }
             else if ( c == ':' )
@@ -769,11 +769,11 @@ token_t get_next_token(void)
 
         case STATE_F_LT:
             if (c == '=')
-                token.type = TOKEN_LESS_EQ;
+                token.type = TOKEN_LE;
             else
             {
                 ungetc(c, stdin);
-                token.type = TOKEN_LESS;
+                token.type = TOKEN_LT;
             }
 
             free(str);
@@ -781,11 +781,11 @@ token_t get_next_token(void)
 
         case STATE_F_GT:
             if (c == '=')
-                token.type = TOKEN_MORE_EQ;
+                token.type = TOKEN_GE;
             else
             {
                 ungetc(c, stdin);
-                token.type = TOKEN_MORE;
+                token.type = TOKEN_GT;
             }
 
             free(str);
@@ -793,7 +793,7 @@ token_t get_next_token(void)
 
         case STATE_F_NOT:
             if (c == '=')
-                token.type = TOKEN_NQ;
+                token.type = TOKEN_NE;
             else
             {
                 ungetc(c, stdin);
@@ -843,7 +843,7 @@ token_t get_next_token(void)
             {
                 ungetc(c, stdin);
                 free(str);
-                token.type = TOKEN_DIVIDE;
+                token.type = TOKEN_DIV;
                 return token;
             }
             break;

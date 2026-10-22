@@ -3,14 +3,8 @@
 
 typedef enum
 {
+    // Identifier & keywords
     TOKEN_ID,
-
-    //data types
-    TOKEN_INT,
-    TOKEN_DOUBLE,
-    TOKEN_STRING,
-
-    //special words
     TOKEN_DEF,
     TOKEN_DO,
     TOKEN_TYPE_DOUBLE,
@@ -34,36 +28,40 @@ typedef enum
     TOKEN_MATCH,
     TOKEN_TYPE,
 
-    //Math operations
+    // Data types
+    TOKEN_INT,
+    TOKEN_DOUBLE,
+    TOKEN_STRING,
+
+    // Arithmetic operators
     TOKEN_ADD,
     TOKEN_SUB,
-    TOKEN_MULTIPLY,
-    TOKEN_DIVIDE,
+    TOKEN_MUL,
+    TOKEN_DIV,
 
-    //Braces
-    TOKEN_L_BRACE,
-    TOKEN_R_BRACE,
-    TOKEN_LS_BRACE,
-    TOKEN_RS_BRACE,
+    // Parentheses
+    TOKEN_L_PAREN,
+    TOKEN_R_PAREN,
 
-    //Compare
-    TOKEN_LESS,
-    TOKEN_MORE,
-    TOKEN_MORE_EQ,
-    TOKEN_LESS_EQ,
+    // Relational operators
     TOKEN_EQ,
-    TOKEN_NQ,
+    TOKEN_NE,
+    TOKEN_LT,
+    TOKEN_LE,
+    TOKEN_GT,
+    TOKEN_GE,
 
-    //Boolean
+    // Logical operators
+    TOKEN_NOT,
     TOKEN_AND,
     TOKEN_OR,
-    TOKEN_NOT,
-    
-    //Operations
+
+    // Operations
     TOKEN_ASSIGN,
     TOKEN_SEMICOLON,
     TOKEN_COLON,
-    //Other
+
+    // Other
     TOKEN_EOL,
     TOKEN_DOT,
     TOKEN_ERROR,
