@@ -44,9 +44,9 @@ typedef enum
     STATE_F_LT,
     STATE_F_GT,
     STATE_F_NOT,
+    STATE_Q_AND,
+    STATE_Q_OR,
 
-    STATE_AND,
-    STATE_OR,
     STATE_INDENT,
     STATE_SLASH,
     STATE_COMMENT,
@@ -289,6 +289,10 @@ token_t get_next_token(void)
                 state = STATE_F_GT;
             else if (c == '!')
                 state = STATE_F_NOT;
+            else if (c == '&')
+                state = STATE_Q_AND;
+            else if (c == '|')
+                state = STATE_Q_OR;
             else if (c == ' ')
             {
                 if (is_new_line)
@@ -352,17 +356,7 @@ token_t get_next_token(void)
                 token.type=TOKEN_SEMICOLON;
                 return token;
             }
-            else if( c == '&' )
-            {
-                state=STATE_AND;
-                append_char(&str, &length, &capacity, (char)c);
-            }
-            else if( c == '|' )
-            {
-                state=STATE_OR;
-                append_char(&str, &length, &capacity, (char)c);
-            }
-            else if( c == '\n')
+            else if (c == '\n')
             {
                 //whenever scanner finds \n that ends new line, give info to start counting indent
                 token.type = TOKEN_EOL;
@@ -809,34 +803,32 @@ token_t get_next_token(void)
             free(str);
             return token;
 
-        case STATE_AND:
-            if ( c == '&' ){
-                free(str);
+        case STATE_Q_AND:
+            free(str);
+
+            if (c == '&')
+            {
                 token.type = TOKEN_AND;
                 return token;
             }
-            else{
-                ungetc(c, stdin);
-                free(str);
-                token.type = TOKEN_ERROR;
-                return token;
-            }
-            break;
-        case STATE_OR:
-            if ( c == '|' )
+
+            fprintf(stderr, "Unexpected character: %c", c);
+            free(str);
+            exit(1);
+
+        case STATE_Q_OR:
+            free(str);
+
+            if (c == '|')
             {
-                free(str);
                 token.type = TOKEN_OR;
                 return token;
             }
-            else
-            {
-                free(str);
-                ungetc(c, stdin);
-                token.type=TOKEN_ERROR;
-                return token;
-            }
-            break;
+
+            fprintf(stderr, "Unexpected character: %c", c);
+            free(str);
+            exit(1);
+
         case STATE_SLASH:
             if( c == '/')
             {
