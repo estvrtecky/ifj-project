@@ -293,6 +293,30 @@ token_t get_next_token(void)
                 state = STATE_Q_AND;
             else if (c == '|')
                 state = STATE_Q_OR;
+            else if (c == '(')
+            {
+                free(str);
+                token.type = TOKEN_L_PAREN;
+                return token;
+            }
+            else if (c == ')')
+            {
+                free(str);
+                token.type = TOKEN_R_PAREN;
+                return token;
+            }
+            else if (c == ':')
+            {
+                free(str);
+                token.type = TOKEN_COLON;
+                return token;
+            }
+            else if (c == ';')
+            {
+                free(str);
+                token.type = TOKEN_SEMICOLON;
+                return token;
+            }
             else if (c == ' ')
             {
                 if (is_new_line)
@@ -300,24 +324,6 @@ token_t get_next_token(void)
                     spaces++;
                     state = STATE_F_SPACES;
                 }
-            }
-            else if( c == '(' )
-            {
-                free(str);
-                token.type = TOKEN_L_PAREN;
-                return token;
-            }
-            else if( c == ')' )
-            {
-                free(str);
-                token.type = TOKEN_R_PAREN;
-                return token;
-            }
-            else if ( c == ':' )
-            {
-                free(str);
-                token.type=TOKEN_COLON;
-                return token;
             }
             else if (c == '\n')
             {
@@ -348,18 +354,6 @@ token_t get_next_token(void)
                 }
 
                 token.type = TOKEN_EOF;
-                return token;
-            }
-            else if( c == ';')
-            {
-                free(str);
-                token.type=TOKEN_SEMICOLON;
-                return token;
-            }
-            else if (c == '\n')
-            {
-                //whenever scanner finds \n that ends new line, give info to start counting indent
-                token.type = TOKEN_EOL;
                 return token;
             }
             break;
