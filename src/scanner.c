@@ -43,7 +43,7 @@ typedef enum
     STATE_F_ASSIGN,
     STATE_F_LT,
     STATE_F_GT,
-    STATE_Q_EXCLAMATION,
+    STATE_F_NOT,
 
     STATE_AND,
     STATE_OR,
@@ -288,7 +288,7 @@ token_t get_next_token(void)
             else if (c == '>')
                 state = STATE_F_GT;
             else if (c == '!')
-                state = STATE_Q_EXCLAMATION;
+                state = STATE_F_NOT;
             else if (c == ' ')
             {
                 if (is_new_line)
@@ -797,17 +797,17 @@ token_t get_next_token(void)
             free(str);
             return token;
 
-        case STATE_Q_EXCLAMATION:
-            free(str);
-
+        case STATE_F_NOT:
             if (c == '=')
-            {
                 token.type = TOKEN_NQ;
-                return token;
+            else
+            {
+                ungetc(c, stdin);
+                token.type = TOKEN_NOT;
             }
 
-            fprintf(stderr, "Unexpected character: %c", c);
-            exit(1);
+            free(str);
+            return token;
 
         case STATE_AND:
             if ( c == '&' ){
