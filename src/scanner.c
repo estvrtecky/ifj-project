@@ -30,15 +30,14 @@ typedef enum
     STATE_F_E,
     STATE_Q3,
 
+    // String literal
     STATE_Q4,
     STATE_Q5,
     STATE_Q6,
     STATE_Q7,
     STATE_Q8,
     STATE_Q9,
-    STATE_F_MULTI,
     STATE_F_EMPTY,
-    STATE_F_STRING,
 
     // Operations & operators
     STATE_F_ASSIGN,
@@ -626,30 +625,91 @@ token_t get_next_token(void)
             }
             break;
 
+        // String literal
         case STATE_Q4:
-            if(c == '"')
+            if (c == '"')
             {
                 state = STATE_F_EMPTY;
                 append_char(&str, &length, &capacity, (char)c);
             }
+            else if (c == '\\')
+            {
+                state = STATE_Q5;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else if (c != '\n' && c != '"' && c != '\\' && c != EOF)
+            {
+                state = STATE_Q6;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else
+            {
+                fprintf(stderr, "Unexpected character: %c", c);
+                free(str);
+                exit(1);
+            }
             break;
+
         case STATE_F_EMPTY:
-            if(c == '"')
+            if (c == '"')
             {
                 state = STATE_Q7;
                 append_char(&str, &length, &capacity, (char)c);
-                token.type=TOKEN_STRING;
-                return token;
             }
-            //we receive something other than ", move it back to START
             else
             {
                 ungetc(c, stdin);
-                state=STATE_START;
+                token.type = TOKEN_STRING;
+                token.attribute.s = str;
+                return token;
             }
             break;
+
+        case STATE_Q5:
+            if (c == '\\' || c == '"' || c == 'n' || c == 'r' || c == 't')
+            {
+                state = STATE_Q6;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else
+            {
+                fprintf(stderr, "Unexpected character: %c", c);
+                free(str);
+                exit(1);
+            }
+            break;
+
+        case STATE_Q6:
+            if (c != '\n' && c != '"' && c != '\\' && c != EOF)
+                append_char(&str, &length, &capacity, (char)c);
+            else if (c == '\\')
+            {
+                state = STATE_Q5;
+                append_char(&str, &length, &capacity, (char)c);
+            }
+            else if (c == '"')
+            {
+                append_char(&str, &length, &capacity, (char)c);
+                token.type = TOKEN_STRING;
+                token.attribute.s = str;
+                return token;
+            }
+            else
+            {
+                fprintf(stderr, "Unexpected character: %c", c);
+                free(str);
+                exit(1);
+            }
+            break;
+
         case STATE_Q7:
-            if(c == '"')
+            if (c == EOF)
+            {
+                fprintf(stderr, "Unexpected character: %c", c);
+                free(str);
+                exit(1);
+            }
+            else if (c == '"')
             {
                 state = STATE_Q8;
                 append_char(&str, &length, &capacity, (char)c);
@@ -659,33 +719,47 @@ token_t get_next_token(void)
                 append_char(&str, &length, &capacity, (char)c);
             }
             break;
+
         case STATE_Q8:
-            if(c=='"')
+            if (c == EOF)
             {
-                state=STATE_Q9;
+                fprintf(stderr, "Unexpected character: %c", c);
+                free(str);
+                exit(1);
+            }
+            else if (c == '"')
+            {
+                state = STATE_Q9;
                 append_char(&str, &length, &capacity, (char)c);
             }
-            //if we add anything that is not a ", we need to go back to STATE_Q7
             else
             {
-                state=STATE_Q7;
+                state = STATE_Q7;
                 append_char(&str, &length, &capacity, (char)c);
             }
             break;
+
         case STATE_Q9:
-            if(c == '"')
+            if (c == EOF)
+            {
+                fprintf(stderr, "Unexpected character: %c", c);
+                free(str);
+                exit(1);
+            }
+            else if (c == '"')
             {
                 append_char(&str, &length, &capacity, (char)c);
-                token.type= TOKEN_STRING;
+                token.type = TOKEN_STRING;
                 token.attribute.s = str;
-                free(str);
                 return token;
             }
-            else{
-                state=STATE_Q7;
+            else
+            {
+                state = STATE_Q7;
                 append_char(&str, &length, &capacity, (char)c);
             }
             break;
+
         // Operations & operators
         case STATE_F_ASSIGN:
             if (c == '=')
