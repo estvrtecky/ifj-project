@@ -48,7 +48,7 @@ typedef enum
     STATE_Q_OR,
 
     STATE_INDENT,
-    STATE_SLASH,
+    STATE_F_SLASH,
     STATE_COMMENT,
     STATE_MULTLINE_COMMENT,
     STATE_ML_BEGIN,
@@ -275,11 +275,8 @@ token_t get_next_token(void)
                 token.type = TOKEN_MUL;
                 return token;
             }
-            // to do add one line comment support
             else if (c == '/')
-            {
-                state = STATE_SLASH;
-            }
+                state = STATE_F_SLASH;
             else if (c == '=')
                 state = STATE_F_ASSIGN;
             else if (c == '<')
@@ -370,6 +367,11 @@ token_t get_next_token(void)
             {
                 spaces = 0;
                 state = STATE_START;
+            }
+            else if (c == '/')
+            {
+                spaces = 0;
+                state = STATE_F_SLASH;
             }
             else
             {
@@ -822,11 +824,9 @@ token_t get_next_token(void)
             free(str);
             exit(1);
 
-        case STATE_SLASH:
+        case STATE_F_SLASH:
             if (c == '/')
-            {
                 state = STATE_COMMENT;
-            }
             else if (c == '*')
             {
                 multiline_comment_openings_counter++;
@@ -840,16 +840,15 @@ token_t get_next_token(void)
                 return token;
             }
             break;
+
         case STATE_COMMENT:
-            if (c != '\n' && c != EOF)
+            if (c == '\n' || c == EOF)
             {
-                state = STATE_COMMENT;
-            }
-            else
-            {
+                ungetc(c, stdin);
                 state = STATE_START;
             }
             break;
+
         case STATE_MULTLINE_COMMENT:
             if (c == '*')
             {
