@@ -65,6 +65,7 @@ typedef struct
 static bool is_new_line = true;
 static int *indent_stack = NULL;
 static int stack_top = 0;
+static int bracket_openings_counter=0;
 static int pending_dedents = 0;
 static int multiline_comment_openings_counter = 0;
 
@@ -215,7 +216,7 @@ token_t get_next_token(void)
         {
         case STATE_START:
             // Every char except space and \n turns off new line
-            if (is_new_line && c != ' ' && c != '\n' && c != EOF)
+            if (is_new_line && c != ' ' && c != '\n' && c != EOF && c!='/')
             {
                 is_new_line = false;
 
@@ -291,12 +292,14 @@ token_t get_next_token(void)
                 state = STATE_Q_OR;
             else if (c == '(')
             {
+                bracket_openings_counter++;
                 free(str);
                 token.type = TOKEN_L_PAREN;
                 return token;
             }
             else if (c == ')')
             {
+                bracket_openings_counter--;
                 free(str);
                 token.type = TOKEN_R_PAREN;
                 return token;
@@ -323,7 +326,7 @@ token_t get_next_token(void)
             }
             else if (c == '\n')
             {
-                if (!is_new_line)
+                if (!is_new_line && bracket_openings_counter==0)
                 {
                     free(str);
                     is_new_line = true;
@@ -874,6 +877,11 @@ token_t get_next_token(void)
             {
                 state = STATE_ML_BEGIN;
             }
+            else if(c == EOF)
+            {
+                free(str);
+                token.type=TOKEN_ERROR;
+                return token;
             else
             {
                 state = STATE_MULTLINE_COMMENT;
@@ -887,14 +895,9 @@ token_t get_next_token(void)
                 {
                     state = STATE_START;
                 }
-                else if (c == '*')
-                {
-                    state = STATE_ML_END;
-                }
-                else
-                {
-                    state = STATE_MULTLINE_COMMENT;
-                }
+            else if (c == '*')
+            {
+                state = STATE_ML_END;
             }
             else
             {
