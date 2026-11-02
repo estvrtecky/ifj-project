@@ -67,6 +67,7 @@ static int *indent_stack = NULL;
 static int stack_top = 0;
 static int bracket_openings_counter=0;
 static int pending_dedents = 0;
+static bool is_div = false;
 static int multiline_comment_openings_counter = 0;
 
 static const keyword_t keywords[] = {
@@ -206,6 +207,12 @@ token_t get_next_token(void)
         {
             exit(99);
         }
+    }
+    if(is_div)
+    {
+        is_div = false;
+        token.type = TOKEN_DIV;
+        return token;
     }
 
     while (1)
@@ -373,7 +380,6 @@ token_t get_next_token(void)
             }
             else if (c == '/')
             {
-                spaces = 0;
                 state = STATE_F_SLASH;
             }
             else
@@ -829,9 +835,13 @@ token_t get_next_token(void)
 
         case STATE_F_SLASH:
             if (c == '/')
+            {
+                spaces=0;
                 state = STATE_COMMENT;
+            }
             else if (c == '*')
             {
+                spaces = 0;
                 multiline_comment_openings_counter++;
                 state = STATE_MULTLINE_COMMENT;
             }
@@ -839,6 +849,15 @@ token_t get_next_token(void)
             {
                 ungetc(c, stdin);
                 free(str);
+                if(is_new_line)
+                {
+                    is_new_line = false;
+                    if(is_indent_changed(spaces, &token.type)
+                    {
+                        is_div = true;
+                        return token;
+                    }
+                }
                 token.type = TOKEN_DIV;
                 return token;
             }
@@ -863,6 +882,7 @@ token_t get_next_token(void)
             }
             else if (c == EOF)
             {
+                free(str);
                 token.type = TOKEN_ERROR;
                 return token;
             }
@@ -898,6 +918,12 @@ token_t get_next_token(void)
             else if (c == '*')
             {
                 state = STATE_ML_END;
+            }
+            else if(c == EOF)
+            {
+                free(str);
+                token.type = TOKEN_ERROR;
+                return token;
             }
             else
             {
