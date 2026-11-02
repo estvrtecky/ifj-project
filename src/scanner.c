@@ -183,7 +183,7 @@ static bool is_indent_changed(int spaces, token_type_t *token_type)
 token_t get_next_token(void)
 {
     token_t token;
-
+    bool is_multiline_comment=false;
     if (pending_dedents > 0)
     {
         pending_dedents--;
@@ -222,6 +222,23 @@ token_t get_next_token(void)
         switch (state)
         {
         case STATE_START:
+            if(is_multiline_comment)
+            {
+                if(c == ' ')
+                {
+                    state = STATE_START;
+                }
+                else if( c == '\n' || c == EOF)
+                {
+                    is_multiline_comment = false;
+                }
+                else
+                {
+                    free(str);
+                    token.type = TOKEN_ERROR;
+                    return token;
+                }
+            }
             // Every char except space and \n turns off new line
             if (is_new_line && c != ' ' && c != '\n' && c != EOF && c!='/')
             {
@@ -886,6 +903,10 @@ token_t get_next_token(void)
                 token.type = TOKEN_ERROR;
                 return token;
             }
+            else if(c == '\n')
+            {
+                is_multiline_comment = true;
+            }
             break;
         case STATE_ML_BEGIN:
             if (c == '*')
@@ -902,6 +923,10 @@ token_t get_next_token(void)
                 free(str);
                 token.type=TOKEN_ERROR;
                 return token;
+            }
+            else if(c == '\n')
+            {
+                is_multiline_comment=true;
             }
             else
             {
@@ -926,6 +951,10 @@ token_t get_next_token(void)
                 free(str);
                 token.type = TOKEN_ERROR;
                 return token;
+            }
+            else if(c=='\n')
+            {
+                is_multiline_comment=true;
             }
             else
             {
