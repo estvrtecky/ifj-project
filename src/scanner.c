@@ -852,7 +852,7 @@ token_t get_next_token(void)
                 if(is_new_line)
                 {
                     is_new_line = false;
-                    if(is_indent_changed(spaces, &token.type)
+                    if(is_indent_changed(spaces, &token.type))
                     {
                         is_div = true;
                         return token;
@@ -902,6 +902,7 @@ token_t get_next_token(void)
                 free(str);
                 token.type=TOKEN_ERROR;
                 return token;
+            }
             else
             {
                 state = STATE_MULTLINE_COMMENT;
@@ -915,6 +916,7 @@ token_t get_next_token(void)
                 {
                     state = STATE_START;
                 }
+            }
             else if (c == '*')
             {
                 state = STATE_ML_END;
