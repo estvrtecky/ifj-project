@@ -226,7 +226,7 @@ token_t get_next_token(void)
             {
                 if(c == ' ')
                 {
-                    state = STATE_START;
+                    break;
                 }
                 else if( c == '\n' || c == EOF)
                 {
@@ -927,6 +927,7 @@ token_t get_next_token(void)
             else if(c == '\n')
             {
                 is_multiline_comment=true;
+                state=STATE_MULTILINE_COMMENT;
             }
             else
             {
@@ -955,6 +956,7 @@ token_t get_next_token(void)
             else if(c=='\n')
             {
                 is_multiline_comment=true;
+                state=STATE_MULTILINE_COMMENT;
             }
             else
             {
