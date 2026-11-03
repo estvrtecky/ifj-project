@@ -927,7 +927,7 @@ token_t get_next_token(void)
             else if(c == '\n')
             {
                 is_multiline_comment=true;
-                state=STATE_MULTILINE_COMMENT;
+                state=STATE_MULTLINE_COMMENT;
             }
             else
             {
@@ -956,7 +956,7 @@ token_t get_next_token(void)
             else if(c=='\n')
             {
                 is_multiline_comment=true;
-                state=STATE_MULTILINE_COMMENT;
+                state=STATE_MULTLINE_COMMENT;
             }
             else
             {
