@@ -64,7 +64,6 @@ typedef enum
     // Other
     TOKEN_EOL,
     TOKEN_DOT,
-    TOKEN_ERROR,
     TOKEN_INDENT,
     TOKEN_DEDENT,
     TOKEN_EOF
