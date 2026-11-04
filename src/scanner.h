@@ -85,6 +85,6 @@ typedef struct
  * @brief function returns one token
  * @return function returns struct token
  */
-token_t get_next_token(void);
+int get_next_token(token_t *token);
 
 #endif

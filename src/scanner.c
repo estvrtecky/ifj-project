@@ -65,7 +65,7 @@ typedef struct
 static bool is_new_line = true;
 static int *indent_stack = NULL;
 static int stack_top = 0;
-static int bracket_openings_counter=0;
+static int bracket_openings_counter = 0;
 static int pending_dedents = 0;
 static bool is_div = false;
 static int multiline_comment_openings_counter = 0;
@@ -176,22 +176,21 @@ static int is_indent_changed(int spaces, token_type_t *token_type)
  * @brief function returns one token
  * @return function returns struct token
  */
-token_t get_next_token(void)
+int get_next_token(token_t *token)
 {
-    token_t token;
-    bool is_multiline_comment=false;
+    bool is_multiline_comment = false;
     if (pending_dedents > 0)
     {
         pending_dedents--;
-        token.type = TOKEN_DEDENT;
-        return token;
+        token->type = TOKEN_DEDENT;
+        return OK;
     }
 
     size_t capacity = 16;
     size_t length = 0;
     char *str = calloc(capacity, 1);
     if (str == NULL)
-        exit(99);
+        return ERROR_INTERNAL;
 
     state_t state = STATE_START;
     int spaces = 0;
@@ -200,15 +199,14 @@ token_t get_next_token(void)
     {
         indent_stack = malloc(sizeof(int) * 256);
         if (indent_stack == NULL)
-        {
-            exit(99);
-        }
+            return ERROR_INTERNAL;
     }
-    if(is_div)
+
+    if (is_div)
     {
         is_div = false;
-        token.type = TOKEN_DIV;
-        return token;
+        token->type = TOKEN_DIV;
+        return OK;
     }
 
     while (1)
@@ -218,40 +216,39 @@ token_t get_next_token(void)
         switch (state)
         {
         case STATE_START:
-            if(is_multiline_comment)
+            if (is_multiline_comment)
             {
-                if(c == ' ')
+                if (c == ' ')
                 {
                     break;
                 }
-                else if( c == '\n' || c == EOF)
+                else if (c == '\n' || c == EOF)
                 {
                     is_multiline_comment = false;
                 }
                 else
                 {
                     free(str);
-                    token.type = TOKEN_ERROR;
-                    return token;
+                    return ERROR_LEX;
                 }
             }
             // Every char except space and \n turns off new line
-            if (is_new_line && c != ' ' && c != '\n' && c != EOF && c!='/')
+            if (is_new_line && c != ' ' && c != '\n' && c != EOF && c != '/')
             {
                 is_new_line = false;
 
-                int changed = is_indent_changed(spaces, &token.type);
+                int changed = is_indent_changed(spaces, &token->type);
                 if (changed == -1)
                 {
                     fprintf(stderr, "Inconsistent indentation\n");
-                    exit(ERROR_LEX);
+                    return ERROR_LEX;
                 }
 
                 if (changed)
                 {
                     ungetc(c, stdin);
                     free(str);
-                    return token;
+                    return OK;
                 }
             }
 
@@ -261,7 +258,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if ('1' <= c && c <= '9')
@@ -270,7 +267,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
@@ -279,7 +276,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '.')
@@ -288,7 +285,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '_')
@@ -297,7 +294,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '"')
@@ -306,26 +303,26 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '+')
             {
                 free(str);
-                token.type = TOKEN_ADD;
-                return token;
+                token->type = TOKEN_ADD;
+                return OK;
             }
             else if (c == '-')
             {
                 free(str);
-                token.type = TOKEN_SUB;
-                return token;
+                token->type = TOKEN_SUB;
+                return OK;
             }
             else if (c == '*')
             {
                 free(str);
-                token.type = TOKEN_MUL;
-                return token;
+                token->type = TOKEN_MUL;
+                return OK;
             }
             else if (c == '/')
                 state = STATE_F_SLASH;
@@ -345,27 +342,27 @@ token_t get_next_token(void)
             {
                 bracket_openings_counter++;
                 free(str);
-                token.type = TOKEN_L_PAREN;
-                return token;
+                token->type = TOKEN_L_PAREN;
+                return OK;
             }
             else if (c == ')')
             {
                 bracket_openings_counter--;
                 free(str);
-                token.type = TOKEN_R_PAREN;
-                return token;
+                token->type = TOKEN_R_PAREN;
+                return OK;
             }
             else if (c == ':')
             {
                 free(str);
-                token.type = TOKEN_COLON;
-                return token;
+                token->type = TOKEN_COLON;
+                return OK;
             }
             else if (c == ';')
             {
                 free(str);
-                token.type = TOKEN_SEMICOLON;
-                return token;
+                token->type = TOKEN_SEMICOLON;
+                return OK;
             }
             else if (c == ' ')
             {
@@ -377,12 +374,12 @@ token_t get_next_token(void)
             }
             else if (c == '\n')
             {
-                if (!is_new_line && bracket_openings_counter==0)
+                if (!is_new_line && bracket_openings_counter == 0)
                 {
                     free(str);
                     is_new_line = true;
-                    token.type = TOKEN_EOL;
-                    return token;
+                    token->type = TOKEN_EOL;
+                    return OK;
                 }
             }
             else if (c == EOF)
@@ -392,19 +389,19 @@ token_t get_next_token(void)
                 if (!is_new_line)
                 {
                     is_new_line = true;
-                    token.type = TOKEN_EOL;
-                    return token;
+                    token->type = TOKEN_EOL;
+                    return OK;
                 }
 
                 if (stack_top > 0)
                 {
                     stack_top--;
-                    token.type = TOKEN_DEDENT;
-                    return token;
+                    token->type = TOKEN_DEDENT;
+                    return OK;
                 }
 
-                token.type = TOKEN_EOF;
-                return token;
+                token->type = TOKEN_EOF;
+                return OK;
             }
             break;
 
@@ -431,17 +428,17 @@ token_t get_next_token(void)
                 ungetc(c, stdin);
                 is_new_line = false;
 
-                int changed = is_indent_changed(spaces, &token.type);
+                int changed = is_indent_changed(spaces, &token->type);
                 if (changed == -1)
                 {
                     fprintf(stderr, "Inconsistent indentation\n");
-                    exit(ERROR_LEX);
+                    return ERROR_LEX;
                 }
 
                 if (changed)
                 {
                     free(str);
-                    return token;
+                    return OK;
                 }
                 else
                 {
@@ -458,14 +455,14 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             break;
 
@@ -475,20 +472,20 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
             {
                 ungetc(c, stdin);
-                token.type = get_keyword(str);
+                token->type = get_keyword(str);
 
-                if (token.type == TOKEN_ID)
-                    token.attribute.s = str;
+                if (token->type == TOKEN_ID)
+                    token->attribute.s = str;
                 else
                     free(str);
 
-                return token;
+                return OK;
             }
             break;
 
@@ -500,7 +497,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == 'e' || c == 'E')
@@ -509,16 +506,16 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
             {
                 ungetc(c, stdin);
-                token.type = TOKEN_INT;
-                token.attribute.i = 0;
+                token->type = TOKEN_INT;
+                token->attribute.i = 0;
                 free(str);
-                return token;
+                return OK;
             }
             break;
 
@@ -528,7 +525,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '_')
@@ -539,7 +536,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == 'e' || c == 'E')
@@ -548,16 +545,16 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
             {
                 ungetc(c, stdin);
-                token.type = TOKEN_INT;
-                token.attribute.i = (int)strtol(str, NULL, 10);
+                token->type = TOKEN_INT;
+                token->attribute.i = (int)strtol(str, NULL, 10);
                 free(str);
-                return token;
+                return OK;
             }
             break;
 
@@ -568,7 +565,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '_')
@@ -577,7 +574,7 @@ token_t get_next_token(void)
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             break;
 
@@ -589,14 +586,14 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             break;
 
@@ -606,7 +603,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '_')
@@ -617,23 +614,23 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == 'd' || c == 'D')
             {
-                token.type = TOKEN_DOUBLE;
-                token.attribute.d = strtod(str, NULL);
+                token->type = TOKEN_DOUBLE;
+                token->attribute.d = strtod(str, NULL);
                 free(str);
-                return token;
+                return OK;
             }
             else
             {
                 ungetc(c, stdin);
-                token.type = TOKEN_DOUBLE;
-                token.attribute.d = strtod(str, NULL);
+                token->type = TOKEN_DOUBLE;
+                token->attribute.d = strtod(str, NULL);
                 free(str);
-                return token;
+                return OK;
             }
             break;
 
@@ -644,7 +641,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '_')
@@ -653,7 +650,7 @@ token_t get_next_token(void)
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             break;
 
@@ -664,7 +661,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '-' || c == '+')
@@ -673,14 +670,14 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             break;
 
@@ -691,14 +688,14 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             break;
 
@@ -708,25 +705,25 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '_')
                 state = STATE_Q3;
             else if (c == 'd' || c == 'D')
             {
-                token.type = TOKEN_DOUBLE;
-                token.attribute.d = strtod(str, NULL);
+                token->type = TOKEN_DOUBLE;
+                token->attribute.d = strtod(str, NULL);
                 free(str);
-                return token;
+                return OK;
             }
             else
             {
                 ungetc(c, stdin);
-                token.type = TOKEN_DOUBLE;
-                token.attribute.d = strtod(str, NULL);
+                token->type = TOKEN_DOUBLE;
+                token->attribute.d = strtod(str, NULL);
                 free(str);
-                return token;
+                return OK;
             }
             break;
 
@@ -737,7 +734,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '_')
@@ -746,7 +743,7 @@ token_t get_next_token(void)
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             break;
 
@@ -758,7 +755,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '\\')
@@ -767,7 +764,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c != '\n' && c != '"' && c != '\\' && c != EOF)
@@ -776,14 +773,14 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             break;
 
@@ -794,15 +791,15 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
             {
                 ungetc(c, stdin);
-                token.type = TOKEN_STRING;
-                token.attribute.s = str;
-                return token;
+                token->type = TOKEN_STRING;
+                token->attribute.s = str;
+                return OK;
             }
             break;
 
@@ -813,14 +810,14 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             break;
 
@@ -830,7 +827,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '\\')
@@ -839,7 +836,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else if (c == '"')
@@ -847,17 +844,17 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
-                token.type = TOKEN_STRING;
-                token.attribute.s = str;
-                return token;
+                token->type = TOKEN_STRING;
+                token->attribute.s = str;
+                return OK;
             }
             else
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             break;
 
@@ -866,7 +863,7 @@ token_t get_next_token(void)
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             else if (c == '"')
             {
@@ -874,7 +871,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
@@ -882,7 +879,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             break;
@@ -892,7 +889,7 @@ token_t get_next_token(void)
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             else if (c == '"')
             {
@@ -900,7 +897,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
@@ -909,7 +906,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             break;
@@ -919,18 +916,18 @@ token_t get_next_token(void)
             {
                 fprintf(stderr, "Unexpected character: %c", c);
                 free(str);
-                exit(1);
+                return ERROR_LEX;
             }
             else if (c == '"')
             {
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
-                token.type = TOKEN_STRING;
-                token.attribute.s = str;
-                return token;
+                token->type = TOKEN_STRING;
+                token->attribute.s = str;
+                return OK;
             }
             else
             {
@@ -938,7 +935,7 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             break;
@@ -946,82 +943,82 @@ token_t get_next_token(void)
         // Operations & operators
         case STATE_F_ASSIGN:
             if (c == '=')
-                token.type = TOKEN_EQ;
+                token->type = TOKEN_EQ;
             else
             {
                 ungetc(c, stdin);
-                token.type = TOKEN_ASSIGN;
+                token->type = TOKEN_ASSIGN;
             }
 
             free(str);
-            return token;
+            return OK;
 
         case STATE_F_LT:
             if (c == '=')
-                token.type = TOKEN_LE;
+                token->type = TOKEN_LE;
             else
             {
                 ungetc(c, stdin);
-                token.type = TOKEN_LT;
+                token->type = TOKEN_LT;
             }
 
             free(str);
-            return token;
+            return OK;
 
         case STATE_F_GT:
             if (c == '=')
-                token.type = TOKEN_GE;
+                token->type = TOKEN_GE;
             else
             {
                 ungetc(c, stdin);
-                token.type = TOKEN_GT;
+                token->type = TOKEN_GT;
             }
 
             free(str);
-            return token;
+            return OK;
 
         case STATE_F_NOT:
             if (c == '=')
-                token.type = TOKEN_NE;
+                token->type = TOKEN_NE;
             else
             {
                 ungetc(c, stdin);
-                token.type = TOKEN_NOT;
+                token->type = TOKEN_NOT;
             }
 
             free(str);
-            return token;
+            return OK;
 
         case STATE_Q_AND:
             free(str);
 
             if (c == '&')
             {
-                token.type = TOKEN_AND;
-                return token;
+                token->type = TOKEN_AND;
+                return OK;
             }
 
             fprintf(stderr, "Unexpected character: %c", c);
             free(str);
-            exit(1);
+            return ERROR_LEX;
 
         case STATE_Q_OR:
             free(str);
 
             if (c == '|')
             {
-                token.type = TOKEN_OR;
-                return token;
+                token->type = TOKEN_OR;
+                return OK;
             }
 
             fprintf(stderr, "Unexpected character: %c", c);
             free(str);
-            exit(1);
+            return ERROR_LEX;
 
         case STATE_F_SLASH:
             if (c == '/')
             {
-                spaces=0;
+                spaces = 0;
                 state = STATE_COMMENT;
             }
             else if (c == '*')
@@ -1034,25 +1031,25 @@ token_t get_next_token(void)
             {
                 ungetc(c, stdin);
                 free(str);
-                if(is_new_line)
+                if (is_new_line)
                 {
                     is_new_line = false;
 
-                    int changed = is_indent_changed(spaces, &token.type);
+                    int changed = is_indent_changed(spaces, &token->type);
                     if (changed == -1)
                     {
                         fprintf(stderr, "Inconsistent indentation\n");
-                        exit(ERROR_LEX);
+                        return ERROR_LEX;
                     }
 
                     if (changed)
                     {
                         is_div = true;
-                        return token;
+                        return OK;
                     }
                 }
-                token.type = TOKEN_DIV;
-                return token;
+                token->type = TOKEN_DIV;
+                return OK;
             }
             break;
 
@@ -1076,10 +1073,9 @@ token_t get_next_token(void)
             else if (c == EOF)
             {
                 free(str);
-                token.type = TOKEN_ERROR;
-                return token;
+                return ERROR_LEX;
             }
-            else if(c == '\n')
+            else if (c == '\n')
             {
                 is_multiline_comment = true;
             }
@@ -1094,16 +1090,15 @@ token_t get_next_token(void)
             {
                 state = STATE_ML_BEGIN;
             }
-            else if(c == EOF)
+            else if (c == EOF)
             {
                 free(str);
-                token.type=TOKEN_ERROR;
-                return token;
+                return ERROR_LEX;
             }
-            else if(c == '\n')
+            else if (c == '\n')
             {
-                is_multiline_comment=true;
-                state=STATE_MULTLINE_COMMENT;
+                is_multiline_comment = true;
+                state = STATE_MULTLINE_COMMENT;
             }
             else
             {
@@ -1123,16 +1118,15 @@ token_t get_next_token(void)
             {
                 state = STATE_ML_END;
             }
-            else if(c == EOF)
+            else if (c == EOF)
             {
                 free(str);
-                token.type = TOKEN_ERROR;
-                return token;
+                return ERROR_LEX;
             }
-            else if(c=='\n')
+            else if (c == '\n')
             {
-                is_multiline_comment=true;
-                state=STATE_MULTLINE_COMMENT;
+                is_multiline_comment = true;
+                state = STATE_MULTLINE_COMMENT;
             }
             else
             {
@@ -1147,15 +1141,15 @@ token_t get_next_token(void)
                 if (append_char(&str, &length, &capacity, (char)c) != OK)
                 {
                     free(str);
-                    exit(ERROR_INTERNAL);
+                    return ERROR_INTERNAL;
                 }
             }
             else
             {
                 ungetc(c, stdin);
                 free(str);
-                token.type = TOKEN_DOT;
-                return token;
+                token->type = TOKEN_DOT;
+                return OK;
             }
             break;
 
