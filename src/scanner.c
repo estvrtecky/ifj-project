@@ -142,15 +142,15 @@ static token_type_t get_keyword(const char *str)
  * @brief function return boolean value based on current indentation
  * @param spaces is number of counted whitespaces in indentation
  * @param token_type is type of token we indentify
- * @return boolean
+ * @return int
  */
-static bool is_indent_changed(int spaces, token_type_t *token_type)
+static int is_indent_changed(int spaces, token_type_t *token_type)
 {
     if (indent_stack[stack_top] < spaces)
     {
         indent_stack[++stack_top] = spaces;
         *token_type = TOKEN_INDENT;
-        return true;
+        return 1;
     }
     else if (spaces < indent_stack[stack_top])
     {
@@ -162,17 +162,14 @@ static bool is_indent_changed(int spaces, token_type_t *token_type)
         }
 
         if (indent_stack[stack_top] != spaces)
-        {
-            fprintf(stderr, "Inconsistent indentation\n");
-            exit(1);
-        }
+            return -1;
 
         pending_dedents = dedent_count - 1;
         *token_type = TOKEN_DEDENT;
-        return true;
+        return 1;
     }
 
-    return false;
+    return 0;
 }
 
 /**
@@ -243,7 +240,14 @@ token_t get_next_token(void)
             {
                 is_new_line = false;
 
-                if (is_indent_changed(spaces, &token.type))
+                int changed = is_indent_changed(spaces, &token.type);
+                if (changed == -1)
+                {
+                    fprintf(stderr, "Inconsistent indentation\n");
+                    exit(ERROR_LEX);
+                }
+
+                if (changed)
                 {
                     ungetc(c, stdin);
                     free(str);
@@ -427,7 +431,14 @@ token_t get_next_token(void)
                 ungetc(c, stdin);
                 is_new_line = false;
 
-                if (is_indent_changed(spaces, &token.type))
+                int changed = is_indent_changed(spaces, &token.type);
+                if (changed == -1)
+                {
+                    fprintf(stderr, "Inconsistent indentation\n");
+                    exit(ERROR_LEX);
+                }
+
+                if (changed)
                 {
                     free(str);
                     return token;
@@ -1026,7 +1037,15 @@ token_t get_next_token(void)
                 if(is_new_line)
                 {
                     is_new_line = false;
-                    if(is_indent_changed(spaces, &token.type))
+
+                    int changed = is_indent_changed(spaces, &token.type);
+                    if (changed == -1)
+                    {
+                        fprintf(stderr, "Inconsistent indentation\n");
+                        exit(ERROR_LEX);
+                    }
+
+                    if (changed)
                     {
                         is_div = true;
                         return token;
