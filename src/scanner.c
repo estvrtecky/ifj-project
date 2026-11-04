@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 
+#include "error.h"
 #include "scanner.h"
 
 typedef enum
@@ -103,7 +103,7 @@ static const keyword_t keywords[] = {
  * @param c is char we want to add
  * @return char will be added to array
  */
-static void append_char(char **str, size_t *length, size_t *capacity, char c)
+static int append_char(char **str, size_t *length, size_t *capacity, char c)
 {
     if (*length + 1 >= *capacity)
     {
@@ -111,16 +111,15 @@ static void append_char(char **str, size_t *length, size_t *capacity, char c)
         char *tmp = realloc(*str, *capacity);
 
         if (tmp == NULL)
-        {
-            free(*str);
-            exit(99);
-        }
+            return ERROR_INTERNAL;
 
         *str = tmp;
     }
 
     (*str)[(*length)++] = c;
     (*str)[*length] = '\0';
+
+    return OK;
 }
 
 /**
@@ -255,32 +254,56 @@ token_t get_next_token(void)
             if (c == '0')
             {
                 state = STATE_F_ZERO;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if ('1' <= c && c <= '9')
             {
                 state = STATE_F_INT;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
             {
                 state = STATE_F_ID;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == '.')
             {
                 state = STATE_F_DOT;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == '_')
             {
                 state = STATE_Q_ID;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == '"')
             {
                 state = STATE_Q4;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == '+')
             {
@@ -421,7 +444,11 @@ token_t get_next_token(void)
             if (isalnum(c) || c == '_')
             {
                 state = STATE_F_ID;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else
             {
@@ -433,7 +460,13 @@ token_t get_next_token(void)
 
         case STATE_F_ID:
             if (isalnum(c) || c == '_')
-                append_char(&str, &length, &capacity, (char)c);
+            {
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
+            }
             else
             {
                 ungetc(c, stdin);
@@ -453,12 +486,20 @@ token_t get_next_token(void)
             if (c == '.')
             {
                 state = STATE_Q_D;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == 'e' || c == 'E')
             {
                 state = STATE_Q_E;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else
             {
@@ -472,18 +513,32 @@ token_t get_next_token(void)
 
         case STATE_F_INT:
             if (isdigit(c))
-                append_char(&str, &length, &capacity, (char)c);
+            {
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
+            }
             else if (c == '_')
                 state = STATE_Q1;
             else if (c == '.')
             {
                 state = STATE_Q_D;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == 'e' || c == 'E')
             {
                 state = STATE_Q_E;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else
             {
@@ -499,7 +554,11 @@ token_t get_next_token(void)
             if (isdigit(c))
             {
                 state = STATE_F_INT;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == '_')
                 break;
@@ -516,7 +575,11 @@ token_t get_next_token(void)
             if (isdigit(c))
             {
                 state = STATE_F_D;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else
             {
@@ -528,13 +591,23 @@ token_t get_next_token(void)
 
         case STATE_F_D:
             if (isdigit(c))
-                append_char(&str, &length, &capacity, (char)c);
+            {
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
+            }
             else if (c == '_')
                 state = STATE_Q2;
             else if (c == 'e' || c == 'E')
             {
                 state = STATE_Q_E;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == 'd' || c == 'D')
             {
@@ -557,7 +630,11 @@ token_t get_next_token(void)
             if (isdigit(c))
             {
                 state = STATE_F_D;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == '_')
                 break;
@@ -573,12 +650,20 @@ token_t get_next_token(void)
             if (isdigit(c))
             {
                 state = STATE_F_E;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == '-' || c == '+')
             {
                 state = STATE_Q_ES;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else
             {
@@ -592,7 +677,11 @@ token_t get_next_token(void)
             if (isdigit(c))
             {
                 state = STATE_F_E;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else
             {
@@ -604,7 +693,13 @@ token_t get_next_token(void)
 
         case STATE_F_E:
             if (isdigit(c))
-                append_char(&str, &length, &capacity, (char)c);
+            {
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
+            }
             else if (c == '_')
                 state = STATE_Q3;
             else if (c == 'd' || c == 'D')
@@ -628,7 +723,11 @@ token_t get_next_token(void)
             if (isdigit(c))
             {
                 state = STATE_F_E;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == '_')
                 break;
@@ -645,17 +744,29 @@ token_t get_next_token(void)
             if (c == '"')
             {
                 state = STATE_F_EMPTY;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == '\\')
             {
                 state = STATE_Q5;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c != '\n' && c != '"' && c != '\\' && c != EOF)
             {
                 state = STATE_Q6;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else
             {
@@ -669,7 +780,11 @@ token_t get_next_token(void)
             if (c == '"')
             {
                 state = STATE_Q7;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else
             {
@@ -684,7 +799,11 @@ token_t get_next_token(void)
             if (c == '\\' || c == '"' || c == 'n' || c == 'r' || c == 't')
             {
                 state = STATE_Q6;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else
             {
@@ -696,15 +815,29 @@ token_t get_next_token(void)
 
         case STATE_Q6:
             if (c != '\n' && c != '"' && c != '\\' && c != EOF)
-                append_char(&str, &length, &capacity, (char)c);
+            {
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
+            }
             else if (c == '\\')
             {
                 state = STATE_Q5;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else if (c == '"')
             {
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
                 token.type = TOKEN_STRING;
                 token.attribute.s = str;
                 return token;
@@ -727,11 +860,19 @@ token_t get_next_token(void)
             else if (c == '"')
             {
                 state = STATE_Q8;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else
             {
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             break;
 
@@ -745,12 +886,20 @@ token_t get_next_token(void)
             else if (c == '"')
             {
                 state = STATE_Q9;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else
             {
                 state = STATE_Q7;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             break;
 
@@ -763,7 +912,11 @@ token_t get_next_token(void)
             }
             else if (c == '"')
             {
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
                 token.type = TOKEN_STRING;
                 token.attribute.s = str;
                 return token;
@@ -771,7 +924,11 @@ token_t get_next_token(void)
             else
             {
                 state = STATE_Q7;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             break;
 
@@ -968,7 +1125,11 @@ token_t get_next_token(void)
             if (isdigit(c))
             {
                 state = STATE_F_D;
-                append_char(&str, &length, &capacity, (char)c);
+                if (append_char(&str, &length, &capacity, (char)c) != OK)
+                {
+                    free(str);
+                    exit(ERROR_INTERNAL);
+                }
             }
             else
             {
