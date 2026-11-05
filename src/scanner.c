@@ -65,6 +65,7 @@ typedef struct
 static bool is_new_line = true;
 static int *indent_stack = NULL;
 static int stack_top = 0;
+static int_indent_capacity = 256;
 static int bracket_openings_counter = 0;
 static int pending_dedents = 0;
 static bool is_div = false;
@@ -148,6 +149,17 @@ static int is_indent_changed(int spaces, token_type_t *token_type)
 {
     if (indent_stack[stack_top] < spaces)
     {
+        if(int_stack_top + 1 >= int_indent_capacity)
+        {
+            int_indent_capacity *= 2;
+            int *tmp = realloc(indent_stack, sizoof(int)*int_indent_capacity);
+            if(tmp == NULL)
+            {
+                fprintf(stderr, "Allocation failed\n");
+                return -1;
+            }
+            indent_stack = tmp;
+        }
         indent_stack[++stack_top] = spaces;
         *token_type = TOKEN_INDENT;
         return 1;
@@ -199,7 +211,11 @@ int get_next_token(token_t *token)
     {
         indent_stack = malloc(sizeof(int) * 256);
         if (indent_stack == NULL)
+        {
+            free(str);
             return ERROR_INTERNAL;
+        }
+        indent_stack[0] = 0;
     }
 
     if (is_div)
@@ -235,6 +251,12 @@ int get_next_token(token_t *token)
             // Every char except space and \n turns off new line
             if (is_new_line && c != ' ' && c != '\n' && c != EOF && c != '/')
             {
+                if( c == '\t')
+                {
+                    fprintf(stderr, "Tabulator is not allowed as indent\n");
+                    free(str);
+                    return ERROR_LEX;
+                }
                 is_new_line = false;
 
                 int changed = is_indent_changed(spaces, &token->type);
@@ -382,6 +404,18 @@ int get_next_token(token_t *token)
                     return OK;
                 }
             }
+            else if(c == '@')
+            {
+                free(str);
+                token->type=TOKEN_AT;
+                return OK;
+            }
+            else if(c == ',')
+            {
+                free(str);
+                token->type=TOKEN_COMMA;
+                return OK;
+            }
             else if (c == EOF)
             {
                 free(str);
@@ -409,6 +443,12 @@ int get_next_token(token_t *token)
             if (c == ' ')
             {
                 spaces++;
+            }
+            else if(c == '\t')
+            {
+                fprintf(stderr, "tabulotor is not allowed\n");
+                free(str);
+                return ERROR_LEX;
             }
             else if (c == '\n')
             {
