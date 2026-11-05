@@ -369,7 +369,10 @@ int get_next_token(token_t *token)
             }
             else if (c == ')')
             {
-                bracket_openings_counter--;
+                if(bracket_openings_counter > 0)
+                {
+                    bracket_openings_counter--;
+                }
                 free(str);
                 token->type = TOKEN_R_PAREN;
                 return OK;
