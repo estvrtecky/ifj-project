@@ -543,6 +543,12 @@ int get_next_token(token_t *token)
                     return ERROR_INTERNAL;
                 }
             }
+            else if(isdigit(c))
+            {
+                free(str);
+                fprintf(stderr, "Zero can not be followed by zero\n");
+                return ERROR_LEX;
+            }
             else if (c == 'e' || c == 'E')
             {
                 state = STATE_Q_E;
