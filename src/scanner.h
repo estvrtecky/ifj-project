@@ -60,6 +60,8 @@ typedef enum
     TOKEN_ASSIGN,
     TOKEN_SEMICOLON,
     TOKEN_COLON,
+    TOKEN_COMMA,
+    TOKEN_AT,
 
     // Other
     TOKEN_EOL,
