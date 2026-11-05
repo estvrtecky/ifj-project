@@ -149,10 +149,10 @@ static int is_indent_changed(int spaces, token_type_t *token_type)
 {
     if (indent_stack[stack_top] < spaces)
     {
-        if(int_stack_top + 1 >= indent_stack_capacity)
+        if(stack_top + 1 >= indent_stack_capacity)
         {
             indent_stack_capacity *= 2;
-            int *tmp = realloc(indent_stack, sizoof(int)*indent_stack_capacity);
+            int *tmp = realloc(indent_stack, sizeof(int)*indent_stack_capacity);
             if(tmp == NULL)
             {
                 fprintf(stderr, "Allocation failed\n");
