@@ -65,7 +65,7 @@ typedef struct
 static bool is_new_line = true;
 static int *indent_stack = NULL;
 static int stack_top = 0;
-static int_indent_capacity = 256;
+static int indent_stack_capacity = 256;
 static int bracket_openings_counter = 0;
 static int pending_dedents = 0;
 static bool is_div = false;
@@ -149,10 +149,10 @@ static int is_indent_changed(int spaces, token_type_t *token_type)
 {
     if (indent_stack[stack_top] < spaces)
     {
-        if(int_stack_top + 1 >= int_indent_capacity)
+        if(int_stack_top + 1 >= indent_stack_capacity)
         {
-            int_indent_capacity *= 2;
-            int *tmp = realloc(indent_stack, sizoof(int)*int_indent_capacity);
+            indent_stack_capacity *= 2;
+            int *tmp = realloc(indent_stack, sizoof(int)*indent_stack_capacity);
             if(tmp == NULL)
             {
                 fprintf(stderr, "Allocation failed\n");
