@@ -1042,7 +1042,6 @@ int get_next_token(token_t *token)
             }
 
             fprintf(stderr, "Unexpected character: %c", c);
-            free(str);
             return ERROR_LEX;
 
         case STATE_Q_OR:
@@ -1055,7 +1054,6 @@ int get_next_token(token_t *token)
             }
 
             fprintf(stderr, "Unexpected character: %c", c);
-            free(str);
             return ERROR_LEX;
 
         case STATE_F_SLASH:
