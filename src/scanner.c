@@ -249,7 +249,7 @@ int get_next_token(token_t *token)
                 }
             }
             // Every char except space and \n turns off new line
-            if (is_new_line && c != ' ' && c != '\n' && c != EOF && c != '/')
+            if (is_new_line && c != ' ' && c != '\n' &&  c != '\r' && c != EOF && c != '/')
             {
                 if( c == '\t')
                 {
@@ -439,6 +439,12 @@ int get_next_token(token_t *token)
 
                 token->type = TOKEN_EOF;
                 return OK;
+            }
+            else
+            {
+                fprintf(stderr, "Unknown character\n");
+                free(str);
+                return ERROR_LEX;
             }
             break;
 
