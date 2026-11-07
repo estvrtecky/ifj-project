@@ -389,7 +389,7 @@ int get_next_token(token_t *token)
                 token->type = TOKEN_SEMICOLON;
                 return OK;
             }
-            else if (c == ' ')
+            else if (c == ' ' || c == '\r')
             {
                 if (is_new_line)
                 {
@@ -1165,6 +1165,10 @@ int get_next_token(token_t *token)
                 if (multiline_comment_openings_counter == 0)
                 {
                     state = STATE_START;
+                }
+                else
+                {
+                    state = STATE_MULTLINE_COMMENT;
                 }
             }
             else if (c == '*')
