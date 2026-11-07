@@ -389,7 +389,7 @@ int get_next_token(token_t *token)
                 token->type = TOKEN_SEMICOLON;
                 return OK;
             }
-            else if (c == ' ' || c == '\r')
+            else if (c == ' ' || c == '\r' || c == '\t')
             {
                 if (is_new_line)
                 {
