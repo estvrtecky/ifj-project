@@ -73,6 +73,7 @@ typedef enum
 
 typedef struct
 {
+    int line;
     token_type_t type;
     union
     {

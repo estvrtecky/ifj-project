@@ -69,6 +69,7 @@ static int indent_stack_capacity = 256;
 static int bracket_openings_counter = 0;
 static int pending_dedents = 0;
 static bool is_div = false;
+static int current_line = 1;
 static int multiline_comment_openings_counter = 0;
 
 static const keyword_t keywords[] = {
@@ -194,6 +195,7 @@ int get_next_token(token_t *token)
     if (pending_dedents > 0)
     {
         pending_dedents--;
+        token->line = current_line;
         token->type = TOKEN_DEDENT;
         return OK;
     }
@@ -222,13 +224,18 @@ int get_next_token(token_t *token)
     {
         is_div = false;
         token->type = TOKEN_DIV;
+        token->line = current_line;
         return OK;
     }
 
     while (1)
     {
         int c = getchar();
-
+        token->line = current_line;
+        if (c == '\n')
+        {
+            current_line++;
+        }
         switch (state)
         {
         case STATE_START:
@@ -269,6 +276,10 @@ int get_next_token(token_t *token)
                 if (changed)
                 {
                     ungetc(c, stdin);
+                    if(c == '\n')
+                    {
+                        current_line--;
+                    }
                     free(str);
                     return OK;
                 }
@@ -475,6 +486,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                    {
+                        current_line--;
+                    }
                 is_new_line = false;
 
                 int changed = is_indent_changed(spaces, &token->type);
@@ -527,6 +542,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                    {
+                        current_line--;
+                    }
                 token->type = get_keyword(str);
 
                 if (token->type == TOKEN_ID)
@@ -567,6 +586,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                    {
+                        current_line--;
+                    }
                 token->type = TOKEN_INT;
                 token->attribute.i = 0;
                 free(str);
@@ -606,6 +629,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                {
+                    current_line--;
+                }
                 token->type = TOKEN_INT;
                 token->attribute.i = (int)strtol(str, NULL, 10);
                 free(str);
@@ -682,6 +709,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                    {
+                        current_line--;
+                    }
                 token->type = TOKEN_DOUBLE;
                 token->attribute.d = strtod(str, NULL);
                 free(str);
@@ -775,6 +806,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                {
+                    current_line--;
+                }
                 token->type = TOKEN_DOUBLE;
                 token->attribute.d = strtod(str, NULL);
                 free(str);
@@ -852,6 +887,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                {
+                    current_line--;
+                }
                 token->type = TOKEN_STRING;
                 token->attribute.s = str;
                 return OK;
@@ -1002,6 +1041,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                {
+                    current_line--;
+                }
                 token->type = TOKEN_ASSIGN;
             }
 
@@ -1014,6 +1057,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                {
+                    current_line--;
+                }
                 token->type = TOKEN_LT;
             }
 
@@ -1026,6 +1073,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                {
+                    current_line--;
+                }
                 token->type = TOKEN_GT;
             }
 
@@ -1038,6 +1089,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                {
+                    current_line--;
+                }
                 token->type = TOKEN_NOT;
             }
 
@@ -1083,6 +1138,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                {
+                    current_line--;
+                }
                 free(str);
                 if (is_new_line)
                 {
@@ -1110,6 +1169,10 @@ int get_next_token(token_t *token)
             if (c == '\n' || c == EOF)
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                {
+                    current_line--;
+                }
                 state = STATE_START;
             }
             break;
@@ -1204,6 +1267,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
+                if(c == '\n')
+                {
+                    current_line--;
+                }
                 free(str);
                 token->type = TOKEN_DOT;
                 return OK;
