@@ -51,16 +51,16 @@ typedef enum {
   OP_mul, // *
   OP_div, // /
           // Relational operators
-  OP_lt, // <
-  OP_le, // <=
-  OP_gt, // >
-  OP_ge, // >=
-  OP_eq, // ==
-  OP_ne, // !=
-         // Logical Operators
+  OP_lt,  // <
+  OP_le,  // <=
+  OP_gt,  // >
+  OP_ge,  // >=
+  OP_eq,  // ==
+  OP_ne,  // !=
+          // Logical Operators
   OP_and, // &&
   OP_or,  // ||
-         // Unary Operators
+          // Unary Operators
   OP_neg, // -x
   OP_not, // !
   OP_pos, // +x
@@ -213,6 +213,49 @@ struct AST_node {
     AST_conv_int_to_double_data conv;
   } as; // Payload depends on the kind. AST_unit_lit has no payload;
 };
+
+AST_node *AST_new(AST_node_type kind, size_t line);
+
+/*Constructors :    Return new node or NULL if allocation fails
+                    Set common fields to UNKNOWN / -1 / false
+                    Copy strings (name, value)
+                    Take ownership of child nodes and free them in the event of
+a failure
+
+For AST_new_call, AST_new_block, AST_new_program : Arguments, commands,
+functions) are added by the caller via AST_list_push For AST_new_func_def parser
+adds parameters via AST_func_add_param, as well as the return type and flags
+
+*/
+AST_node *AST_new_int_lit(int64_t value, size_t line);
+AST_node *AST_new_double_lit(double value, size_t line);
+AST_node *AST_new_string_lit(const char *value, size_t line);
+AST_node *AST_new_bool_lit(bool value, size_t line);
+AST_node *AST_new_unit_lit(size_t line);
+AST_node *AST_new_id(const char *name, size_t line);
+AST_node *AST_new_binop(AST_op_type op, AST_node *left, AST_node *right,
+                        size_t line);
+AST_node *AST_new_unop(AST_op_type op, AST_node *operand, size_t line);
+AST_node *AST_new_call(const char *name, size_t line);
+AST_node *AST_new_conv(AST_node *operand, size_t line);
+AST_node *AST_new_var_def(const char *name, bool is_mutable,
+                          Data_types decl_type, AST_node *init, size_t line);
+AST_node *AST_new_assign(const char *name, AST_node *value, size_t line);
+AST_node *AST_new_if(AST_node *cond, AST_node *then_block, AST_node *else_block,
+                     size_t line); // else_block can be NULL
+AST_node *AST_new_while(AST_node *cond, AST_node *body, size_t line);
+AST_node *AST_new_return(AST_node *value, size_t line); // value can be NULL
+AST_node *AST_new_expr_stmt(AST_node *expr, size_t line);
+AST_node *AST_new_block(size_t line);
+AST_node *AST_new_program(size_t line);
+AST_node *AST_new_func_def(const char *name, size_t line);
+bool AST_list_push(AST_node_list *list, AST_node *node);
+bool AST_func_add_param(AST_node *func, const char *name, Data_types type);
+void *AST_free(AST_node *node); // Recursively frees the node, the entire
+                                // subtree, and all strings; NULL is allowed.
+void *AST_dump(const AST_node *node, FILE *out);
+const char *AST_kind_name(AST_node_type kind);
+const char *AST_op_name(AST_op_type op);
 #ifdef __cplusplus
 }
 #endif
