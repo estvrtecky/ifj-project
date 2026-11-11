@@ -19,7 +19,7 @@ typedef enum{
     FUNC_DONE
 } Func_state;
 
-typedef struct Func_info_s{
+typedef struct {
     AST_node *node;
     Func_state state;
 } Func_info;
@@ -60,7 +60,7 @@ static void wrap_conv(Sema_ctx *ctx, AST_node **slot){
         set_error(ctx, 99);
         return;
     }
-    conv->sym_id = -1;
+    conv->is_result = -1;
     conv->kind = AST_conv_int_to_double;
     conv->as.conv.operand = *slot;
     conv->line = (*slot)->line;
@@ -80,67 +80,3 @@ static void coerce(Sema_ctx *ctx, Data_types target_type, AST_node **slot, int e
         set_error(ctx, err_code);
     }
 }
-
-static void pass1_signatures(Sema_ctx *ctx, AST_node *program){
-    for (size_t i = 0; i < program->as.program.funcs.count; i++){
-        Func_info *info = malloc(sizeof(Func_info));
-        if(info == NULL){
-            set_error(ctx, 99);
-            return;
-        }
-        info->node = program->as.program.funcs.items[i];
-        info->state = FUNC_NOT_VISITED;
-
-        AST_func_def_data *f = &info->node->as.func_def;
-        Data_types *types = calloc(f->param_count, sizeof(Data_types));
-        if(types == NULL && f->param_count > 0){
-            free(info);
-            set_error(ctx, 99);
-            return;
-        }
-
-        for (size_t j = 0; j < f->param_count; j++){
-            types[j] = f->params[j].type;
-        }
-
-        Sym_status status = st_define_func(ctx->st, f->name, f->param_count, types, f->return_type, f->return_explicit);
-        free(types);
-        if(status != SYM_OK){
-            set_error(ctx, sym_status_to_error(status));
-            return;
-        }
-        if(ht_insert(ctx->funcs, f->name, info) == HT_MEM_ERROR){
-            free(info);
-            set_error(ctx, 99);
-            return;
-        }
-    }
-}
-
-
-int sema_analyze(Sema_ctx *ctx,AST_node *program){
-    ctx->error = 0;
-    ctx->st = st_init();
-    if (ctx->st == NULL){
-        set_error(ctx, 99);
-        return 99;
-    }
-    ctx->funcs = ht_init(8, free);
-    if (ctx->funcs == NULL){
-        st_free(ctx->st);
-        set_error(ctx, 99);
-        return 99;
-    }
-
-    pass1_signatures(ctx, program);
-    if(!failed(ctx)){
-        check_main(ctx, program);
-    }
-    if(!failed(ctx)){
-        pass2_bodies(ctx, program);
-    }
-    ht_free(ctx->funcs);
-    st_free(ctx->st);
-    return ctx->error;
-}
-
