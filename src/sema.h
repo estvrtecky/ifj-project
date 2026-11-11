@@ -16,6 +16,7 @@ extern "C"
 {
 #endif
 
+    int sema_analyze(AST_node *program);
     int sema_check(AST_node *program);
 
 #ifdef __cplusplus

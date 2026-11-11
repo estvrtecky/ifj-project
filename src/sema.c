@@ -97,19 +97,20 @@ static void pass1_signatures(Sema_ctx *ctx, AST_node *program){
         
         Sym_status status = st_define_func(ctx->st, f->name, f->param_count, types, f->return_type, f->return_explicit);
         free(types);
+        if(status != SYM_OK){
+            set_error(ctx, sym_status_to_error(status));
+            return;
+        }
+
         Func_info *info = malloc(sizeof(Func_info));
         if(info == NULL){
             set_error(ctx, 99);
             return;
         }
+
         info->node = program->as.program.funcs.items[i];
         info->state = FUNC_NOT_VISITED;
-        if(status != SYM_OK){
-            free(info);
-            set_error(ctx, sym_status_to_error(status));
-            return;
-        }
-        if(ht_insert(ctx->funcs, f->name, info) == HT_MEM_ERROR){
+        if(ht_insert(ctx->funcs, f->name, info) != HT_OK){
             free(info);
             set_error(ctx, 99);
             return;
@@ -117,30 +118,27 @@ static void pass1_signatures(Sema_ctx *ctx, AST_node *program){
     }
 }
 
-
-int sema_analyze(Sema_ctx *ctx,AST_node *program){
-    ctx->error = 0;
-    ctx->st = st_init();
-    if (ctx->st == NULL){
-        set_error(ctx, 99);
+int sema_analyze(AST_node *program){
+    Sema_ctx ctx = {.error = 0, .func_node = NULL};
+    ctx.st = st_init();
+    if (ctx.st == NULL){
         return 99;
     }
-    ctx->funcs = ht_init(8, free);
-    if (ctx->funcs == NULL){
-        st_free(ctx->st);
-        set_error(ctx, 99);
+    ctx.funcs = ht_init(8, free);
+    if (ctx.funcs == NULL){
+        st_free(ctx.st);
         return 99;
     }
 
-    pass1_signatures(ctx, program);
-    if(!failed(ctx)){
-        check_main(ctx, program);
+    pass1_signatures(&ctx, program);
+    if(!failed(&ctx)){
+        check_main(&ctx, program);
     }
-    if(!failed(ctx)){
-        pass2_bodies(ctx, program);
+    if(!failed(&ctx)){
+        pass2_bodies(&ctx, program);
     }
-    ht_free(ctx->funcs);
-    st_free(ctx->st);
-    return ctx->error;
+    ht_free(ctx.funcs);
+    st_free(ctx.st);
+    return ctx.error;
 }
 
