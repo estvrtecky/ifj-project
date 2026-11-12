@@ -1,4 +1,8 @@
 #!/bin/bash
+
+#Cely tento kod bol vygenerovany pomocou AI (Claude verzia 5.5 - Sonnet) ako reakcia na ziadost o vygenerovanie suboru ktory by obsahoval main a spustal scanner aby sme script.sh mohli skontrolovat spravnost scannera.
+#Uprava: STRING sa vypisuje ako STRING("obsah"), pricom uvodzovky pridava driver (scanner uz vracia obsah bez uvodzoviek a s dekodovanymi escape sekvenciami).
+
 # (skupina "anotacia" a "ciarka" predpokladaju tokeny AT a COMMA - pozri driver skener.c)
 # Testovacia sada pre lexikalny analyzator (Scala podmnozina, odsadenie, vnorene komentare).
 # Tento cely subor bol vygenerovany pomocou AI (Claude verzia Sonnet 5.5) na ziadost o vygenerovanie testovacej sady pre scanner
@@ -6,7 +10,7 @@
 # Pouzitie: bash test_scanner.sh [skupina]
 #   bez argumentu bezia vsetky skupiny, inak iba zadana:
 #   komentare zatvorky odsadenie div mlkod koment indent import ciarka anotacia znaky
-#   operatory cisla retazce klucove program biele pamat riadky vlastnictvo zadanie
+#   operatory cisla retazce kapitan klucove program biele pamat riadky vlastnictvo zadanie
 #   (skupiny "riadky" a "vlastnictvo" vyzaduju token.line a driver s argumentom --lines)
 #
 # Ocakavania:
@@ -14,6 +18,10 @@
 #          skoncit s kodom 1, inak s kodom 0.
 #   - te : lexikalna chyba (kod 1) a stderr obsahuje dany text
 #   - kod 77 = nahlasila chybu pamate sanitizer (ASan/UBSan) - double free, pretecenie pola, ...
+#
+# STRING: scanner vracia obsah BEZ uvodzoviek a s dekodovanymi escapes (pri """ doslovne),
+#   driver vypise STRING("obsah"). V ocakavanych vystupoch pouzivame $'...' ak je v obsahu
+#   skutocny novy riadok / tabulator / CR, a obycajne '...' ak je v obsahu doslovny backslash.
 
 ONLY="$1"
 CFLAGS="-Wall -Wextra -std=c11 -g"
@@ -368,27 +376,27 @@ t "cislo v zatvorkach"          '(7)\n'                                    'L_PA
 t "cislo oddelene ciarkou"      '1.5,2\n'                                  'DOUBLE(1.5) COMMA INT(2) EOL EOF'
 
 # ---------------------------------------------------------------------------
-section retazce "retazcove literaly"
+section retazce "retazcove literaly (obsah bez uvodzoviek, dekodovane escapes)"
 t "jednoduchy"                  '"abc"\n'                                  'STRING("abc") EOL EOF'
 t "prazdny"                     '""\n'                                     'STRING("") EOL EOF'
 t "prazdny v priradeni"         'val s = ""\n'                             'VAL ID(s) ASSIGN STRING("") EOL EOF'
 t "prazdny na konci vstupu"     '""'                                       'STRING("") EOL EOF'
 t "medzery vnutri"              '"a b  c"\n'                               'STRING("a b  c") EOL EOF'
-t "escape \\\""                 '"a\\"b"\n'                                'STRING("a\"b") EOL EOF'
-t "escape \\n"                  '"a\\nb"\n'                                'STRING("a\nb") EOL EOF'
-t "escape \\t \\r"              '"a\\tb\\rc"\n'                            'STRING("a\tb\rc") EOL EOF'
-t "escape \\\\"                 '"a\\\\b"\n'                               'STRING("a\\b") EOL EOF'
-t "escape na konci"             '"a\\\\"\n'                                'STRING("a\\") EOL EOF'
+t "escape \\\""                 '"a\\"b"\n'                                'STRING("a"b") EOL EOF'
+t "escape \\n"                  '"a\\nb"\n'                                $'STRING("a\nb") EOL EOF'
+t "escape \\t \\r"              '"a\\tb\\rc"\n'                            $'STRING("a\tb\rc") EOL EOF'
+t "escape \\\\"                 '"a\\\\b"\n'                               'STRING("a\b") EOL EOF'
+t "escape na konci"             '"a\\\\"\n'                                'STRING("a\") EOL EOF'
 t "dva retazce bez medzery"     '"a""b"\n'                                 'STRING("a") STRING("b") EOL EOF'
 t "retazec a ID bez medzery"    '"a"b\n'                                   'STRING("a") ID(b) EOL EOF'
 t "retazec + retazec"           '"a" + "b"\n'                              'STRING("a") ADD STRING("b") EOL EOF'
 t "zatvorky v retazci"          '"(a)"\n'                                  'STRING("(a)") EOL EOF'
-t "triple quote"                '"""abc"""\n'                              'STRING("""abc""") EOL EOF'
-t "triple quote s \" vnutri"    '"""a"b"""\n'                              'STRING("""a"b""") EOL EOF'
-t "triple quote s dvoma \""     '"""a""b"""\n'                             'STRING("""a""b""") EOL EOF'
-t "prazdny triple quote"        '""""""\n'                                 'STRING("""""") EOL EOF'
-t "viacriadkovy retazec"        '"""a\nb"""\n'                             "STRING(\"\"\"a"$'\n'"b\"\"\") EOL EOF"
-t "viacriadkovy: escape sa nevyhodnocuje" '"""a\\nb"""\n'                  'STRING("""a\nb""") EOL EOF'
+t "triple quote"                '"""abc"""\n'                              'STRING("abc") EOL EOF'
+t "triple quote s \" vnutri"    '"""a"b"""\n'                              'STRING("a"b") EOL EOF'
+t "triple quote s dvoma \""     '"""a""b"""\n'                             'STRING("a""b") EOL EOF'
+t "prazdny triple quote"        '""""""\n'                                 'STRING("") EOL EOF'
+t "viacriadkovy retazec"        '"""a\nb"""\n'                             $'STRING("a\nb") EOL EOF'
+t "viacriadkovy: escape sa nevyhodnocuje" '"""a\\nb"""\n'                  'STRING("a\nb") EOL EOF'
 t "neukonceny retazec"          '"abc\n'                                   'ERROR'
 t "neukonceny retazec na EOF"   '"abc'                                    'ERROR'
 t "samotna uvodzovka"           '"'                                        'ERROR'
@@ -397,6 +405,39 @@ t "retazec konci backslashom"   '"abc\\\\\n'                               'ERRO
 t "novy riadok v retazci"       '"a\nb"\n'                                 'ERROR'
 t "neukonceny triple quote"     '"""abc'                                   'ERROR'
 t "neukonceny triple quote 2"   '"""abc""'                                 'ERROR'
+
+# ---------------------------------------------------------------------------
+section kapitan "pripomienka kapitana: obsah retazca bez uvodzoviek, dekodovane escapes, triple quote doslovne"
+# bez uvodzoviek (ak by ich scanner nechal, vystup by bol STRING(""abc""))
+t "obycajny: bez uvodzoviek"    '"abc"\n'                                  'STRING("abc") EOL EOF'
+t "jeden znak"                  '"x"\n'                                    'STRING("x") EOL EOF'
+t "prazdny: bez uvodzoviek"     '""\n'                                     'STRING("") EOL EOF'
+# priklad kapitana: "neg\n" -> neg + skutocny novy riadok
+t "priklad kapitana: neg a novy riadok" '"neg\\n"\n'                       $'STRING("neg\n") EOL EOF'
+# jednotlive escapes
+t "samotne \\n"                 '"\\n"\n'                                  $'STRING("\n") EOL EOF'
+t "samotne \\t"                 '"\\t"\n'                                  $'STRING("\t") EOL EOF'
+t "samotne \\r"                 '"\\r"\n'                                  $'STRING("\r") EOL EOF'
+t "samotne escapovana uvodzovka" '"\\""\n'                                 'STRING(""") EOL EOF'
+t "samotny escapovany backslash" '"\\\\"\n'                                'STRING("\") EOL EOF'
+# viac escapes
+t "vsetky escapes za sebou"     '"\\n\\t\\r\\"\\\\"\n'                     $'STRING("\n\t\r"\\") EOL EOF'
+t "escapes medzi textom"        '"a\\nb\\tc"\n'                            $'STRING("a\nb\tc") EOL EOF'
+# ziadne dvojite dekodovanie: \\ + n su dva znaky (backslash, n), nie novy riadok
+t "\\\\n je backslash a n"      '"\\\\n"\n'                                'STRING("\n") EOL EOF'
+t "dekodovany retazec + dalsi token" '"a\\n" + 1\n'                        $'STRING("a\n") ADD INT(1) EOL EOF'
+# triple quote: obsah doslovne, bez """
+t "triple: obycajny"            '"""abc"""\n'                              'STRING("abc") EOL EOF'
+t "triple: prazdny"             '""""""\n'                                 'STRING("") EOL EOF'
+t "triple: \\n zostava doslovne" '"""a\\nb"""\n'                           'STRING("a\nb") EOL EOF'
+t "triple: \\\" zostava doslovne" '"""a\\"b"""\n'                          'STRING("a\"b") EOL EOF'
+t "triple: \\\\ zostava doslovne" '"""a\\\\b"""\n'                         'STRING("a\\b") EOL EOF'
+t "triple: skutocny novy riadok" '"""a\nb"""\n'                            $'STRING("a\nb") EOL EOF'
+t "triple: jedna \" vnutri"     '"""a"b"""\n'                              'STRING("a"b") EOL EOF'
+t "triple: dve \" vnutri"       '"""a""b"""\n'                             'STRING("a""b") EOL EOF'
+t "triple + dalsi token"        '"""x""" + 1\n'                            'STRING("x") ADD INT(1) EOL EOF'
+t "triple cez 3 riadky + dalsi riadok" '"""a\nb\nc"""\nval x = 1\n'        $'STRING("a\nb\nc") EOL VAL ID(x) ASSIGN INT(1) EOL EOF'
+t "viac retazcov v jednom riadku" '"a\\n" "b\\t" """c"""\n'                $'STRING("a\n") STRING("b\t") STRING("c") EOL EOF'
 
 # ---------------------------------------------------------------------------
 section klucove "klucove slova a identifikatory"
@@ -419,8 +460,9 @@ t "ID zacina cislom -> INT ID"  '1abc\n'                                   'INT(
 
 # ---------------------------------------------------------------------------
 section program "realisticke programy"
+NL=$'\n'
 P_IN='import ifj26.*\n\ndef main(): Unit =\n  val a: Int = 5\n  var b: Double = 2.5e1\n  if a > 3 then\n    ifj26.write("big, ok\\n")\n  else\n    b = b * 2.0\n  while a >= 0 do\n    a = a - 1\n'
-P_EX='IMPORT ID(ifj26) DOT MUL EOL DEF ID(main) L_PAREN R_PAREN COLON TYPE_UNIT ASSIGN EOL INDENT VAL ID(a) COLON TYPE_INT ASSIGN INT(5) EOL VAR ID(b) COLON TYPE_DOUBLE ASSIGN DOUBLE(25) EOL IF ID(a) GT INT(3) THEN EOL INDENT ID(ifj26) DOT ID(write) L_PAREN STRING("big, ok\n") R_PAREN EOL DEDENT ELSE EOL INDENT ID(b) ASSIGN ID(b) MUL DOUBLE(2) EOL DEDENT WHILE ID(a) GE INT(0) DO EOL INDENT ID(a) ASSIGN ID(a) SUB INT(1) EOL DEDENT DEDENT EOF'
+P_EX='IMPORT ID(ifj26) DOT MUL EOL DEF ID(main) L_PAREN R_PAREN COLON TYPE_UNIT ASSIGN EOL INDENT VAL ID(a) COLON TYPE_INT ASSIGN INT(5) EOL VAR ID(b) COLON TYPE_DOUBLE ASSIGN DOUBLE(25) EOL IF ID(a) GT INT(3) THEN EOL INDENT ID(ifj26) DOT ID(write) L_PAREN STRING("big, ok'"$NL"'") R_PAREN EOL DEDENT ELSE EOL INDENT ID(b) ASSIGN ID(b) MUL DOUBLE(2) EOL DEDENT WHILE ID(a) GE INT(0) DO EOL INDENT ID(a) ASSIGN ID(a) SUB INT(1) EOL DEDENT DEDENT EOF'
 t "mini program s if/while"     "$P_IN"                                    "$P_EX"
 t "funkcia s vysledkom"         'def sq(x: Int): Int =\n  return x * x\n\ndef main(): Unit =\n  ifj26.write(sq(3))\n' 'DEF ID(sq) L_PAREN ID(x) COLON TYPE_INT R_PAREN COLON TYPE_INT ASSIGN EOL INDENT RETURN ID(x) MUL ID(x) EOL DEDENT DEF ID(main) L_PAREN R_PAREN COLON TYPE_UNIT ASSIGN EOL INDENT ID(ifj26) DOT ID(write) L_PAREN ID(sq) L_PAREN INT(3) R_PAREN R_PAREN EOL DEDENT EOF'
 t "viacriadkove volanie + koment" 'def main(): Unit =\n  f(1, // prvy\n    2, /* druhy */\n    3)\n  val y = 0\n' 'DEF ID(main) L_PAREN R_PAREN COLON TYPE_UNIT ASSIGN EOL INDENT ID(f) L_PAREN INT(1) COMMA INT(2) COMMA INT(3) R_PAREN EOL VAL ID(y) ASSIGN INT(0) EOL DEDENT EOF'
@@ -488,9 +530,14 @@ section vlastnictvo "token_free / vlastnictvo attribute.s"
 tl "ID a STRING (ASan: double free)" 'val s = "abc"\nval t = s\n' 'VAL@1 ID(s)@1 ASSIGN@1 STRING("abc")@1 EOL@1 VAL@2 ID(t)@2 ASSIGN@2 ID(s)@2 EOL@2 EOF@3'
 tl "prazdny retazec"            '""\n'                       'STRING("")@1 EOL@1 EOF@2'
 tleak "bez uniku: ID, STRING, klucove slova" 'def f(a: Int): String =\n  val s = "x"\n  return s\n'
+tleak "bez uniku: retazec s escapes"        'val s = "a\\nb\\t\\"c\\\\"\n'
+tleak "bez uniku: prazdny retazec"          'val s = ""\n'
+tleak "bez uniku: triple quote"             'val s = """a\nb "q" c"""\n'
+tleak "bez uniku: prazdny triple quote"     'val s = """"""\n'
 tleak "bez uniku: cisla a operatory"        'val x = 1.5e3 + 2 * (3 - 1)\n'
 tleak "bez uniku: komentare a odsadenie"    'a\n  /* c\n  */\n  b // x\nc\n'
 tleak "bez uniku: dlhy ID (realloc)"        "$(printf 'a%.0s' $(seq 1 200))\n"
+tleak "bez uniku: dlhy retazec (realloc)"   "\"$(printf 'b%.0s' $(seq 1 300))\"\n"
 
 # ---------------------------------------------------------------------------
 section zadanie "(zavisi od zadania - skontroluj a pripadne zmaz/uprav)"

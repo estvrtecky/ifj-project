@@ -1,5 +1,6 @@
 /*
-Cely tento kod bol vygenerovany pomocou AI (Claude verzia 5.5 - Sonnet) ako reakcia na ziadost o vygenerovanie suboru ktory by obsahoval main a spustal scanner aby sme script.sh mohli skontrolovat spravnost scannera
+Cely tento kod bol vygenerovany pomocou AI (Claude verzia 5.5 - Sonnet) ako reakcia na ziadost o vygenerovanie suboru ktory by obsahoval main a spustal scanner aby sme script.sh mohli skontrolovat spravnost scannera.
+Uprava: STRING sa vypisuje ako STRING("obsah"), pricom uvodzovky pridava driver (scanner uz vracia obsah bez uvodzoviek a s dekodovanymi escape sekvenciami).
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,6 +72,8 @@ static const char *token_name(token_type_t t)
 
 /* Testovaci driver:
  *  - vypisuje tokeny oddelene medzerou na stdout
+ *  - STRING sa vypisuje ako STRING("obsah"): uvodzovky okolo obsahu pridava driver,
+ *    token.attribute.s uz obsahuje iba dekodovany obsah (bez uvodzoviek, bez """)
  *  - lexikalna chyba (ERROR_LEX)  -> vypise "ERROR", navratovy kod 1
  *  - vnutorna chyba (ERROR_INTERNAL) -> vypise "INTERNAL_ERROR", navratovy kod 99
  *  - TOKEN_EOF -> navratovy kod 0
@@ -117,7 +120,9 @@ int main(int argc, char **argv)
             printf("DOUBLE(%g)", token.attribute.d);
             break;
         case TOKEN_STRING:
-            printf("STRING(%s)", token.attribute.s);
+            fputs("STRING(\"", stdout);
+            fputs(token.attribute.s, stdout);
+            fputs("\")", stdout);
             free(token.attribute.s);
             break;
         default:
