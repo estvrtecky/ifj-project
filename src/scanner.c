@@ -209,14 +209,15 @@ static int is_indent_changed(int spaces, token_type_t *token_type)
     {
         if(stack_top + 1 >= indent_stack_capacity)
         {
-            indent_stack_capacity *= 2;
-            int *tmp = realloc(indent_stack, sizeof(int)*indent_stack_capacity);
+            int indent_stack_capacity_new =2 * indent_stack_capacity;
+            int *tmp = realloc(indent_stack, sizeof(int)*indent_stack_capacity_new);
             if(tmp == NULL)
             {
                 fprintf(stderr, "Allocation failed\n");
                 return -1;
             }
             indent_stack = tmp;
+            indent_stack_capacity = indent_stack_capacity_new;
         }
         indent_stack[++stack_top] = spaces;
         *token_type = TOKEN_INDENT;
@@ -240,6 +241,22 @@ static int is_indent_changed(int spaces, token_type_t *token_type)
     }
 
     return 0;
+}
+
+/**
+  *@brief reset scanner
+  */
+void reset_scanner(void){
+  free(indent_stack);
+  is_new_line = true;
+  indent_stack = NULL;
+  stack_top = 0;
+  indent_stack_capacity = 256;
+  bracket_openings_counter = 0;
+  pending_dedents = 0;
+  is_div = false;
+  current_line = 1;
+  multiline_comment_openings_counter = 0;
 }
 
 /**
@@ -280,6 +297,7 @@ int get_next_token(token_t *token)
     if (is_div)
     {
         is_div = false;
+        free(str);
         token->type = TOKEN_DIV;
         token->line = current_line;
         return OK;
@@ -327,6 +345,7 @@ int get_next_token(token_t *token)
                 if (changed == -1)
                 {
                     fprintf(stderr, "Inconsistent indentation\n");
+                    free(str);
                     return ERROR_LEX;
                 }
 
@@ -552,6 +571,7 @@ int get_next_token(token_t *token)
                 int changed = is_indent_changed(spaces, &token->type);
                 if (changed == -1)
                 {
+                  free(str);
                     fprintf(stderr, "Inconsistent indentation\n");
                     return ERROR_LEX;
                 }

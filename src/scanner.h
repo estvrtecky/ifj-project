@@ -83,6 +83,7 @@ typedef struct
     } attribute;
 } token_t;
 
+void reset_scanner(void);
 /**
  * @brief function returns one token
  * @return function returns struct token
