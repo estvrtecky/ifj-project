@@ -175,3 +175,134 @@ static void stack_free(Stack *s)
     free(s->items);
     stack_init(s);
 }
+
+static Terminal token_to_terminal(const token_t *tok, int depth, bool unary_allowed)
+{
+    switch (tok->type)
+    {
+    case TOKEN_ADD:
+        return unary_allowed ? T_Unary_plus : T_Addition;
+        break;
+    case TOKEN_SUB:
+        return unary_allowed ? T_Unary_minus : T_Subtraction;
+        break;
+    case TOKEN_MUL:
+        return T_Multiplication;
+        break;
+    case TOKEN_DIV:
+        return T_Division;
+        break;
+    case TOKEN_GT:
+        return T_Greater_than;
+        break;
+    case TOKEN_LT:
+        return T_Less_than;
+        break;
+    case TOKEN_GE:
+        return T_Greater_than_or_equal_to;
+        break;
+    case TOKEN_LE:
+        return T_Less_than_or_equal_to;
+        break;
+    case TOKEN_EQ:
+        return T_Equal_to;
+        break;
+    case TOKEN_NE:
+        return T_Not_equal_to;
+        break;
+    case TOKEN_L_PAREN:
+        return T_Left_parenthesis;
+        break;
+    case TOKEN_R_PAREN:
+        return depth == 0 ? T_Dollar_sign : T_Right_parenthesis;
+        break;
+    case TOKEN_INT:
+    case TOKEN_DOUBLE:
+    case TOKEN_STRING:
+    case TOKEN_ID:
+        return T_Letter_i;
+        break;
+    default:
+        return T_Dollar_sign;
+        break;
+    }
+}
+
+static AST_op_type token_to_op(Terminal t)
+{
+    switch (t)
+    {
+    case T_Addition:
+        return OP_add;
+        break;
+    case T_Subtraction:
+        return OP_sub;
+        break;
+    case T_Multiplication:
+        return OP_mul;
+        break;
+    case T_Division:
+        return OP_div;
+        break;
+    case T_Greater_than:
+        return OP_gt;
+        break;
+    case T_Less_than:
+        return OP_lt;
+        break;
+    case T_Greater_than_or_equal_to:
+        return OP_ge;
+        break;
+    case T_Less_than_or_equal_to:
+        return OP_le;
+        break;
+    case T_Equal_to:
+        return OP_eq;
+        break;
+    case T_Not_equal_to:
+        return OP_ne;
+        break;
+    case T_Unary_minus:
+        return OP_neg;
+        break;
+    case T_Unary_plus:
+        return OP_pos;
+        break;
+    default:
+        return OP_add; // Never happens
+        break;
+    }
+}
+
+static ErrorCode make_leaf(token_t *tok, AST_node **out)
+{
+    size_t line = (size_t)tok->line;
+    *out = NULL;
+    switch (tok->type)
+    {
+    case TOKEN_INT:
+        *out = AST_new_int_lit(tok->attribute.i, line);
+        break;
+    case TOKEN_DOUBLE:
+        *out = AST_new_double_lit(tok->attribute.d, line);
+        break;
+    case TOKEN_STRING:
+        *out = AST_new_string_lit(tok->attribute.s, line);
+        free(tok->attribute.s);
+        tok->attribute.s = NULL;
+        break;
+    case TOKEN_ID:
+        *out = AST_new_id(tok->attribute.s, line);
+        free(tok->attribute.s);
+        tok->attribute.s = NULL;
+        break;
+    default:
+        return ERROR_SYNTAX;
+        break;
+    }
+    if (*out == NULL)
+    {
+        return ERROR_INTERNAL;
+    }
+    return OK;
+}
