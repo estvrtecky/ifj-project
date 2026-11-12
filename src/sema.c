@@ -1,7 +1,7 @@
 /*
    # Project:    Implementation of the IFJ26 imperative language compiler
    # File:       sema.c
-   # Brief:      
+   # Brief:      Semantic analyze 
    # Authors:    Adam Vallus     (xvallua00)
 */
 
@@ -19,7 +19,7 @@ typedef enum{
     FUNC_DONE
 } Func_state;
 
-typedef struct Func_info_s{
+typedef struct {
     AST_node *node;
     Func_state state;
 } Func_info;
@@ -31,6 +31,12 @@ typedef struct {
     AST_node *func_node; // Function which is analyzed at the moment
 } Sema_ctx;
 
+static void visit_block(Sema_ctx *ctx, AST_node *block);
+static void visit_stmt(Sema_ctx *ctx, AST_node *stmt);
+static Data_types visit_expr(Sema_ctx *ctx, AST_node *exprt);
+static Data_types visit_call(Sema_ctx *ctx, AST_node *call);
+static Data_types visit_binop(Sema_ctx *ctx, AST_node *binop);
+static Data_types visit_unop(Sema_ctx *ctx, AST_node *unop);
 
 static void set_error(Sema_ctx *ctx, int err_code){
     if(ctx->error != 0){
@@ -81,6 +87,19 @@ static void coerce(Sema_ctx *ctx, Data_types target_type, AST_node **slot, int e
     }
 }
 
+static bool is_numeric(Data_types param){
+    return (param == TYPE_INT || param == TYPE_DOUBLE)? true : false;
+}
+
+static void unify_numeric(Sema_ctx *ctx, AST_node *binop){
+    if (binop->as.binop.left->data_type == TYPE_INT){
+        wrap_conv(ctx, &binop->as.binop.left);
+    }
+    else{
+        wrap_conv(ctx, &binop->as.binop.right);
+    }
+}
+
 static void pass1_signatures(Sema_ctx *ctx, AST_node *program){
     for (size_t i = 0; i < program->as.program.funcs.count; i++){
         
@@ -118,6 +137,394 @@ static void pass1_signatures(Sema_ctx *ctx, AST_node *program){
     }
 }
 
+static void check_main(Sema_ctx *ctx, AST_node *program){
+    size_t main_count = 0;
+    AST_node *main_func = NULL;
+    for (size_t i = 0; i < program->as.program.funcs.count; i++){
+        AST_node *f = program->as.program.funcs.items[i];
+        if(f->as.func_def.is_main == true){
+            main_count++;
+            main_func = f;
+        }
+    }
+    if(main_count == 0){
+        set_error(ctx, 3);
+        return;
+    }
+    if(main_count > 1){
+        set_error(ctx, 4);
+        return;
+    }
+    if(main_func->as.func_def.param_count > 0){
+        set_error(ctx, 5);
+        return;
+    }
+    if(main_func->as.func_def.return_explicit == true && main_func->as.func_def.return_type != TYPE_UNIT){
+        set_error(ctx, 6);
+        return;
+    }   
+}
+
+static void visit_var_def(Sema_ctx *ctx, AST_node *var_def){
+    AST_var_def_data *data = &var_def->as.var_def;
+    Data_types init_type = visit_expr(ctx, data->init);
+    if (failed(ctx)){
+        return;
+    }
+    Data_types var_type = init_type;
+    if (init_type == TYPE_BOOLEAN){
+        set_error(ctx, 6);
+        return;
+    }
+    if (data->decl_type != TYPE_UNKNOWN){
+        coerce(ctx, data->decl_type, &data->init, 6);
+        if(failed(ctx)){
+            return;
+        }
+        var_type = data->decl_type;
+    }
+
+    if (var_type == TYPE_UNKNOWN){
+        set_error(ctx, 6);
+        return;
+    }
+
+    Sym_status status = st_define_var(ctx->st, data->name, var_type, data->is_mutable, false);
+    if (status != SYM_OK){
+        set_error(ctx, sym_status_to_error(status));
+        return;
+    }
+    const Var_symbol *sym = st_lookup_var(ctx->st, data->name);
+    var_def->sym_id = (int) st_var_id(sym);
+}
+
+static void visit_assign(Sema_ctx *ctx, AST_node *assign){
+    AST_assign_data *asgn = &assign->as.assign;
+    const Var_symbol *sym = st_lookup_var(ctx->st, asgn->name);
+    if (sym == NULL){
+        set_error(ctx, 3);
+        return;
+    }
+    if (!st_var_mutable(sym) || st_var_param(sym)){
+        set_error(ctx, 7);
+        return;
+    }
+    Data_types value_type = visit_expr(ctx, asgn->value);
+    if (failed(ctx)){
+        return;
+    }
+    if (value_type == TYPE_BOOLEAN){
+        set_error(ctx, 6);
+        return;
+    }
+    coerce(ctx, st_var_type(sym), &asgn->value, 6);
+    if(failed(ctx)){
+        return;
+    }
+    assign->sym_id = (int) st_var_id(sym);
+}
+
+visit_if(Sema_ctx *ctx, AST_node *if_stmt){
+    AST_if_data *if_data = &if_stmt->as.if_stmt;
+    Data_types cond_type = visit_expr(ctx, if_data->cond);
+    if (failed(ctx)){
+        return;
+    }
+    if (cond_type != TYPE_BOOLEAN){
+        set_error(ctx, 6);
+        return;
+    }
+    visit_block(ctx, if_data->then_block);
+    if (failed(ctx)){
+        return;
+    }
+    if (if_data->else_block != NULL){
+        visit_block(ctx, if_data->else_block);
+    }
+}
+
+visit_while(Sema_ctx *ctx, AST_node *while_stmt){
+    AST_while_data *while_data = &while_stmt->as.while_stmt;
+    Data_types cond_type = visit_expr(ctx, while_data->cond);
+    if (failed(ctx)){
+        return;
+    }
+    if (cond_type != TYPE_BOOLEAN){
+        set_error(ctx, 6);
+        return;
+    }
+    visit_block(ctx, while_data->body);
+}
+
+visit_return(Sema_ctx *ctx, AST_node *return_stmt){
+    AST_node *value = return_stmt->as.return_stmt.value;
+    if(value != NULL){
+        visit_expr(ctx, value);
+    }
+}
+
+static void visit_stmt(Sema_ctx *ctx, AST_node *stmt){
+    switch (stmt->kind)
+    {
+    case AST_var_def:
+        visit_var_def(ctx, stmt);
+        break;
+    case AST_assign:
+        visit_assign(ctx, stmt);
+        break;
+    case AST_if:
+        visit_if(ctx, stmt);
+        break;
+    case AST_while:
+        visit_while(ctx, stmt);
+        break;
+    case AST_expr_stmt:
+        visit_expr(ctx, stmt->as.expr_stmt.expr);
+        break;
+    case AST_return:
+        visit_return(ctx, stmt);
+        break;
+    default:
+        set_error(ctx, 99);
+        break;
+    }
+}
+
+static Data_types visit_expr(Sema_ctx *ctx, AST_node *expr){
+    switch (expr->kind){
+    case AST_int_lit:
+        expr->data_type = TYPE_INT;
+        break;
+    case AST_double_lit:
+        expr->data_type = TYPE_DOUBLE;
+        break;
+    case AST_string_lit:
+        expr->data_type = TYPE_STRING;
+        break;
+    case AST_unit_lit:
+        expr->data_type = TYPE_UNIT;
+        break;
+    case AST_bool_lit:
+        expr->data_type = TYPE_BOOLEAN;
+        break;
+    case AST_id:
+        {
+        const Var_symbol *symbol = st_lookup_var(ctx->st, expr->as.id.name);
+        if(symbol == NULL){
+            set_error(ctx, 3);
+            return TYPE_UNKNOWN;
+        }
+        expr->data_type = st_var_type(symbol);
+        expr->sym_id = (int) st_var_id(symbol);
+        }
+        break;
+    case AST_binop:
+        expr->data_type = visit_binop(ctx, expr);
+        break;
+    case AST_unop:
+        expr->data_type = visit_unop(ctx, expr);
+        break;
+    case AST_call:
+        expr->data_type = visit_call(ctx, expr);
+        break;
+    default:
+        set_error(ctx, 99);
+        return TYPE_UNKNOWN;
+    }
+    return expr->data_type;
+}
+
+static Data_types visit_binop(Sema_ctx *ctx, AST_node *binop){
+    Data_types l = visit_expr(ctx, binop->as.binop.left);
+    if (failed(ctx)){
+        return TYPE_UNKNOWN;
+    }
+    Data_types r = visit_expr(ctx, binop->as.binop.right);
+    if (failed(ctx)){
+        return TYPE_UNKNOWN;
+    }
+    if (l == TYPE_BOOLEAN || r == TYPE_BOOLEAN){
+        set_error(ctx, 6);
+        return TYPE_UNKNOWN;
+    }
+    if (binop->as.binop.op ==  OP_add ||
+        binop->as.binop.op ==  OP_sub ||
+        binop->as.binop.op ==  OP_mul ||
+        binop->as.binop.op ==  OP_div){
+            if( binop->as.binop.op == OP_add &&
+                l == TYPE_STRING &&
+                r == TYPE_STRING){
+                    return TYPE_STRING;
+            }
+            if (is_numeric(l) && is_numeric(r) ){
+                if(l != r){
+                    unify_numeric(ctx, binop);
+                    if(failed(ctx)){
+                        return TYPE_UNKNOWN;
+                    }
+                    return TYPE_DOUBLE;
+                }
+                else {
+                    return l;
+                }
+            }
+            set_error(ctx, 6);
+            return TYPE_UNKNOWN;
+    }
+    if (binop->as.binop.op == OP_lt ||
+        binop->as.binop.op == OP_le ||
+        binop->as.binop.op == OP_gt ||
+        binop->as.binop.op == OP_ge){
+            if(is_numeric(l) && is_numeric(r)){
+                if( l != r){
+                    unify_numeric(ctx, binop);
+                    if(failed(ctx)){
+                        return TYPE_UNKNOWN;
+                    }
+                }
+                return TYPE_BOOLEAN;
+            }
+            if(l == TYPE_STRING && r == TYPE_STRING){
+                return TYPE_BOOLEAN;
+            }
+            set_error(ctx, 6);
+            return TYPE_UNKNOWN;
+    }
+    
+    if (binop->as.binop.op == OP_eq ||
+        binop->as.binop.op == OP_ne ){
+            if(is_numeric(l) && is_numeric(r)){
+                if(l != r){
+                    unify_numeric(ctx, binop);
+                    if(failed(ctx)){
+                        return TYPE_UNKNOWN;
+                    }
+                }
+                return TYPE_BOOLEAN;
+            }
+            if(l == r){
+                return TYPE_BOOLEAN;
+            }
+    }
+    set_error(ctx, 6);
+    return TYPE_UNKNOWN;
+}
+
+static Data_types visit_unop(Sema_ctx *ctx, AST_node *unop){
+    Data_types operand = visit_expr(ctx, unop->as.unop.operand);
+    if (failed(ctx)){
+        return TYPE_UNKNOWN;
+    }
+    if (unop->as.unop.op == OP_neg || unop->as.unop.op == OP_pos){
+        if( operand == TYPE_INT || operand == TYPE_DOUBLE){
+            return operand;
+        }
+        set_error(ctx, 6);
+        return TYPE_UNKNOWN;
+    }
+    if (unop->as.unop.op == OP_not){
+        //! Temporary
+        set_error(ctx, 99);
+        return TYPE_UNKNOWN;
+    }
+    set_error(ctx, 99);
+    return TYPE_UNKNOWN;
+}
+
+static Data_types visit_call(Sema_ctx *ctx, AST_node *call){
+    const Func_symbol *f = st_lookup_func(ctx->st, call->as.call.name);
+    if (f == NULL){
+        set_error(ctx, 3);
+        return TYPE_UNKNOWN;
+    }
+    if (call->as.call.args.count != st_func_param_count(f)){
+        set_error(ctx, 5);
+        return TYPE_UNKNOWN;
+    }
+    for (size_t i = 0; i < call->as.call.args.count; i++){
+        visit_expr(ctx, call->as.call.args.items[i]);
+        if(failed(ctx)){
+            return TYPE_UNKNOWN;
+        }
+        if(call->as.call.args.items[i]->data_type == TYPE_BOOLEAN){
+            set_error(ctx, 5 /* 5 alebo 6 */);
+            return TYPE_UNKNOWN;
+        }
+        coerce(ctx, st_func_param_type(f, i), &call->as.call.args.items[i], 5);
+        if(failed(ctx)){
+            return TYPE_UNKNOWN;
+        }
+    }
+    if (!st_func_builtin(f) && !st_func_return_explicit(f)){
+        
+    }
+    return st_func_return_type(f);
+    
+}
+
+static void visit_block(Sema_ctx *ctx, AST_node *block){
+    if(st_push_scope(ctx->st) != SYM_OK){
+        set_error(ctx, 99);
+        return;
+    }
+    for (size_t i = 0; i < block->as.block.stmts.count; i++){
+        visit_stmt(ctx, block->as.block.stmts.items[i]);
+        if(failed(ctx)){
+            break;
+        }
+    }
+    st_pop_scope(ctx->st);
+}
+
+static void visit_func(Sema_ctx *ctx, AST_node *f){
+    if (st_push_scope(ctx->st) != SYM_OK){
+        set_error(ctx, 99);
+        return;
+    }
+    for (size_t i = 0; i < f->as.func_def.param_count; i++){
+        AST_param p = f->as.func_def.params[i];
+        Sym_status status = st_define_var(ctx->st, p.name, p.type, false, true);
+        if(status != SYM_OK){
+            set_error(ctx, sym_status_to_error(status));
+            break;
+        }
+    }
+    AST_node *previous = ctx->func_node;
+    ctx->func_node = f;
+    if (!failed(ctx)){
+        visit_block(ctx, f->as.func_def.body);
+    }
+    
+    ctx->func_node = previous;
+    st_pop_scope(ctx->st);   
+}
+
+static void analyze_func(Sema_ctx *ctx, AST_node *f){
+    void *found;
+    Func_info *info;
+    if(ht_search(ctx->funcs, f->as.func_def.name, &found) != HT_OK){
+        set_error(ctx, 99);
+        return;
+    }
+    info = found;
+    if(info->state == FUNC_DONE){
+        return;
+    }
+    info->state = FUNC_IN_PROGRESS;
+    visit_func(ctx, f);
+    info->state = FUNC_DONE;
+}
+
+static void pass2_bodies(Sema_ctx *ctx, AST_node *program){
+    for (size_t i = 0; i < program->as.program.funcs.count; i++){
+        analyze_func(ctx, program->as.program.funcs.items[i]);
+        if(failed(ctx)){
+            return;
+        }
+    }
+    
+}
+
 int sema_analyze(AST_node *program){
     Sema_ctx ctx = {.error = 0, .func_node = NULL};
     ctx.st = st_init();
@@ -141,4 +548,3 @@ int sema_analyze(AST_node *program){
     st_free(ctx.st);
     return ctx.error;
 }
-
