@@ -124,6 +124,63 @@ static int append_char(char **str, size_t *length, size_t *capacity, char c)
     return OK;
 }
 
+/* Tento usek kodu(funckia finalize string) bola vygenerovana AI(Claude Sonnet 5.5) dna 12.11.2026
+pisem scanner a teraz sa objavila tato vytka od kapitana potom co nechal cely nas repozitar prejst ai. "Reťazcový token obsahuje úvodzovky a nedekódované escape sekvencie ("neg\n" vrátane " a \+n). Má vrátiť obsah bez úvodzoviek s dekódovanými escapes, pri """ obsah doslovne bez trojitých úvodzoviek". tu je nas kod co aktualne je na githube a patri scanneru. Napis mi funckiu ktora ocisti string od ""*/
+/**
+ * @brief Vytvorí dekódovaný obsah reťazca (bez úvodzoviek, s dekódovanými escapes)
+ * @param raw surový text tokenu vrátane úvodzoviek
+ * @return nový reťazec alebo NULL pri chybe alokácie; raw sa uvoľní
+ */
+static char *finalize_string(char *raw)
+{
+    size_t len = strlen(raw);
+    char *out = malloc(len + 1);
+    if (out == NULL)
+    {
+        free(raw);
+        return NULL;
+    }
+
+    size_t j = 0;
+
+    if (len >= 6 && strncmp(raw, "\"\"\"", 3) == 0)
+    {
+        // Viacriadkový: obsah doslovne, bez trojitých úvodzoviek
+        size_t content_len = len - 6;
+        memcpy(out, raw + 3, content_len);
+        j = content_len;
+    }
+    else
+    {
+        // Bežný: preskoč úvodné a koncové " a dekóduj escapes
+        for (size_t i = 1; i + 1 < len; i++)
+        {
+            if (raw[i] == '\\' && i + 2 < len + 0)
+            {
+                i++;
+                switch (raw[i])
+                {
+                case 'n':  out[j++] = '\n'; break;
+                case 'r':  out[j++] = '\r'; break;
+                case 't':  out[j++] = '\t'; break;
+                case '"':  out[j++] = '"';  break;
+                case '\\': out[j++] = '\\'; break;
+                default:   out[j++] = raw[i]; break;
+                }
+            }
+            else
+            {
+                out[j++] = raw[i];
+            }
+        }
+    }
+
+    out[j] = '\0';
+    free(raw);
+    return out;
+}
+//tu konci kod ktory bo vygenerovany AI(Claude Sonnet 5.5.) 12.11.2026
+
 /**
  * @brief function compares received token with type id and compares its value to find if it is not keyword
  * @param str is string value of token
@@ -892,7 +949,10 @@ int get_next_token(token_t *token)
                     current_line--;
                 }
                 token->type = TOKEN_STRING;
-                token->attribute.s = str;
+                token->attribute.s = finalize_string(str);
+                if(token->attribute.s == NULL){
+                        return ERROR_INTERNAL;
+                }
                 return OK;
             }
             break;
@@ -941,7 +1001,10 @@ int get_next_token(token_t *token)
                     return ERROR_INTERNAL;
                 }
                 token->type = TOKEN_STRING;
-                token->attribute.s = str;
+                token->attribute.s = finalize_string(str);
+                if(token->attribute.s == NULL){
+                    return ERROR_INTERNAL;
+                }
                 return OK;
             }
             else
@@ -1020,7 +1083,10 @@ int get_next_token(token_t *token)
                     return ERROR_INTERNAL;
                 }
                 token->type = TOKEN_STRING;
-                token->attribute.s = str;
+                token->attribute.s = finalize_string(str);
+                if(token->attribute.s == NULL){
+                    return ERROR_INTERNAL;
+                }
                 return OK;
             }
             else
