@@ -42,7 +42,71 @@ static void translate_function(AST_node *func_node){
 }
 
 static void translate_keyword(AST_node *stat_node){
-  //to do
+  if(stat_node == NULL){
+    return;
+  }
+  if(stat_node->kind == AST_block){
+    for(size_t idx=0; idx<stat_node->as.block.stmts.count; idx++){
+      translate_keyword(stat_node->as.block.stmts.items[idx]);
+    }
+  }
+  else if(stat_node->kind == AST_expr_stmt){
+    AST_node *expresion = stat_node->as.expr_stmt.expr;
+    if(expresion == NULL){
+      return;
+    }
+    translate_expresion(expresion);
+    fprintf(out_file, "POPS GF@_t0\n");
+  }
+  else if(stat_node->kind == AST_return){
+    AST_node *return_node = stat_node->as.return_stmt.value;
+    if(return_node == NULL){
+      fprintf(out_file, "PUSHS nil@nil\n");
+    }
+    else{
+      translate_expresion(return_node);
+    }
+    fprintf(out_file, "POPFRAME\n");
+    fprintf(out_file, "RETURN\n");
+  }
+  else if(stat_node->kind == AST_var_def){
+    AST_var_def_data *definition = &stat_node->as.var_def;
+    translate_expresion(definition->init);
+    fprintf(out_file, "DEFVAR LF@%s$%d\n", definition->name);
+    fprintf(out_file, "POPS LF@%s$%d\n", definition->name);
+  }
+  else if(stat_node->kind == AST_assign){
+    AST_assign_data *assign = &stat_node->as.assign;
+    translate_expresion(assign->value);
+    fprintf(out_file, "POPS LF@%s\n", assign->name);
+  }
+  else if(stat_node->kind == AST_if){
+    AST_if_data *condition = &stat_node->as.if_stmt;
+    int id = unique_id_counter++;
+    
+    translate_expresion(condition->cond);
+    fprintf(out_file, "PUSHS bool@false\n");
+    fprintf(out_file, "JUMPIFEQS _L%d_else\n", id);
+  
+    translate_keyword(condition->then_block);
+    fprintf(out_file, "JUMP _L%d_end\n", id);
+    fprintf(out_file, "LABEL _L%d_else\n", id);
+    if(condition->else_block != NULL){
+      translate_keyword(condition->else_block);
+    }
+    fprintf(out_file, "LABEL _L%d_end\n", id);
+  }
+  else if(stat_node->kind == AST_while){
+    AST_while_data *while_loop = &stat_node->as.while_stmt;
+    int id = unique_id_counter++;
+    fprintf(out_file, "LABEL _L%d_while\n", id);
+    translate_expresion(while_loop->cond);
+    fprintf(out_file, "PUSHS bool@false\n");
+    fprintf(out_file, "JUMPIFEQS _L%d_wend_%d\n", id);
+    translate_keyword(while_loop->body);
+    fprintf(out_file, "JUMP _L%d_while\n", id);
+    fprintf(out_file, "LABEL _L%d_wend\n", id);
+    }
 }
 
 static void translate_expresion(AST_node *expresion_node){
