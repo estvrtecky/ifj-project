@@ -1,15 +1,13 @@
 /*
    # Project:    Implementation of the IFJ26 imperative language compiler
    # File:       sema.h
-   # Brief:      
+   # Brief:      Header file for semantic analysis
    # Authors:    Adam Vallus     (xvallua00)
 */
 #ifndef SEMA_H
 #define SEMA_H
 
 #include "ast.h"
-#include "symtable.h"
-#include "hashtable.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -17,7 +15,6 @@ extern "C"
 #endif
 
     int sema_analyze(AST_node *program);
-    int sema_check(AST_node *program);
 
 #ifdef __cplusplus
 }

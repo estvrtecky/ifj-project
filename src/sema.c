@@ -259,9 +259,16 @@ static void ensure_return_type(Sema_ctx *ctx, const char *name){
         return;
     }
 
-    Scope *saved = st_detach_scopes(ctx->st);
+    Scope *saved = NULL;
+    if (st_detach_scopes(ctx->st, &saved) != SYM_OK){
+        set_error(ctx, 99);
+        return;
+    }
     analyze_func(ctx, info->node);
-    st_attach_scopes(ctx->st, saved);
+    if (st_attach_scopes(ctx->st, saved) != SYM_OK){
+        set_error(ctx, 99);
+        return;
+    }
 }
 
 static void check_body_end(Sema_ctx *ctx, AST_node *fn){
@@ -737,7 +744,7 @@ int sema_analyze(AST_node *program){
         pass2_bodies(&ctx, program);
     }
     if(!failed(&ctx)){
-        AST_func_def_data *m = ctx.main_node->as.func_def;
+        AST_func_def_data *m = &ctx.main_node->as.func_def;
         if (!m->return_explicit && m->return_type != TYPE_UNIT){
             set_error(&ctx, 6);
         }

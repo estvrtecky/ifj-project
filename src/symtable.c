@@ -434,18 +434,22 @@ bool st_func_builtin(const Func_symbol *func_symbol)
     return func_symbol->builtin;
 }
 
-Scope *st_detach_scopes(Symtable *symtable)
+Sym_status st_detach_scopes(Symtable *symtable, Scope **output)
 {
     if(symtable == NULL)
     {
         return SYM_MEM_ERROR;
+    } 
+    if (output == NULL)
+    {
+        return SYM_MEM_ERROR;
     }
-    Scope *saved = symtable->top_scope;
+    *output = symtable->top_scope;
     symtable->top_scope = NULL;
-    return saved;
+    return SYM_OK;
 }
 
-void st_attach_scopes(Symtable *symtable, Scope *saved)
+Sym_status st_attach_scopes(Symtable *symtable, Scope *saved)
 {
     if(symtable == NULL)
     {
@@ -456,4 +460,5 @@ void st_attach_scopes(Symtable *symtable, Scope *saved)
         st_pop_scope(symtable);
     }
     symtable->top_scope = saved;
+    return SYM_OK;
 }

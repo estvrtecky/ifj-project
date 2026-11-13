@@ -58,8 +58,8 @@ extern "C"
     bool st_func_return_explicit(const Func_symbol *func_symbol);
     bool st_func_builtin(const Func_symbol *func_symbol);
 
-    void st_attach_scopes(Symtable *symtable, Scope *saved);
-    Scope *st_detach_scopes(Symtable *symtable);
+    Sym_status st_detach_scopes(Symtable *symtable, Scope **output);
+    Sym_status st_attach_scopes(Symtable *symtable, Scope *saved);
 
 #ifdef __cplusplus
 }
