@@ -102,7 +102,7 @@ static void translate_keyword(AST_node *stat_node){
     fprintf(out_file, "LABEL _L%d_while\n", id);
     translate_expresion(while_loop->cond);
     fprintf(out_file, "PUSHS bool@false\n");
-    fprintf(out_file, "JUMPIFEQS _L%d_wend_%d\n", id);
+    fprintf(out_file, "JUMPIFEQS _L%d_wend\n", id);
     translate_keyword(while_loop->body);
     fprintf(out_file, "JUMP _L%d_while\n", id);
     fprintf(out_file, "LABEL _L%d_wend\n", id);
@@ -110,7 +110,65 @@ static void translate_keyword(AST_node *stat_node){
 }
 
 static void translate_expresion(AST_node *expresion_node){
-  //to do
+  if(expresion_node == NULL){
+    return;
+  }
+  if(expresion_node->kind == AST_int_lit){
+    fprintf(out_file, "PUSHS int@%lld\n", (long long)expresion_node->as.int_lit.value);
+  }
+  else if(expresion_node->kind == AST_bool_lit){
+    if(expresion_node->as.bool_lit.value){
+      fprintf(out_file, "PUSHS bool@true\n");
+    }
+    else{
+      fprintf(out_file, "PUSHS bool@false\n");
+    }
+  }
+  else if(expresion_node->kind == AST_id){
+    fprintf(out_file, "PUSHS LF@%s$%d\n", expresion_node->as.id.name, expresion_node->sym_id);
+  }
+  else if(expresion_node->kind == AST_binop){
+    AST_binop_data *operation = &expresion_node->as.binop;
+    translate_expresion(operation->left);
+    translate_expresion(operation->right);
+    if(operation->op == OP_add){
+      fprintf(out_file, "ADDS\n");
+    }
+    else if(operation->op == OP_sub){
+      fprintf(out_file, "SUBS\n");
+    }
+    else if(operation->op == OP_mul){
+      fprintf(out_file, "MULS\n");
+    }
+    //to do pridat double delenie
+    else if(operation->op == OP_div){
+      fprintf(out_file, "DIVS\n");
+    }
+    else if(operation->op == OP_lt){
+      fprintf(out_file, "LTS\n");
+    }
+    else if(operation->op == OP_gt){
+      fprintf(out_file, "GTS\n");
+    }
+    else if(operation->op == OP_eq){
+      fprintf(out_file, "EQS\n");
+    }
+    else if(operation->op == OP_le){
+      fprintf(out_file, "GTS\n");
+      fprintf(out_file, "NOTS\n");
+    }
+    else if(operation->op == OP_ge){
+      fprintf(out_file, "LTS\n");
+      fprintf(out_file, "NOTS\n");
+    }
+    else if(operation->op == OP_and){
+      fprintf(out_file, "ANDS\n");
+    }
+    else if(operation->op == OP_or){
+      fprintf(out_file, "ORS\n");
+    }
+  }
+  
 }
 
 
