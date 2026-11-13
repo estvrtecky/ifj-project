@@ -72,8 +72,8 @@ static void translate_keyword(AST_node *stat_node){
   else if(stat_node->kind == AST_var_def){
     AST_var_def_data *definition = &stat_node->as.var_def;
     translate_expresion(definition->init);
-    fprintf(out_file, "DEFVAR LF@%s$%d\n", definition->name);
-    fprintf(out_file, "POPS LF@%s$%d\n", definition->name);
+    fprintf(out_file, "DEFVAR LF@%s$%d\n", definition->name, stat_node->sym_id);
+    fprintf(out_file, "POPS LF@%s$%d\n", definition->name, stat_node->sym_id);
   }
   else if(stat_node->kind == AST_assign){
     AST_assign_data *assign = &stat_node->as.assign;
