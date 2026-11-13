@@ -30,6 +30,7 @@ extern "C"
     typedef struct Var_symbol Var_symbol;
     typedef struct Func_symbol Func_symbol;
     typedef struct Symtable Symtable;
+    typedef struct Scope Scope;
 
     Symtable *st_init(void);
     void st_free(Symtable *symtable);
@@ -56,6 +57,9 @@ extern "C"
     Data_types st_func_return_type(const Func_symbol *func_symbol);
     bool st_func_return_explicit(const Func_symbol *func_symbol);
     bool st_func_builtin(const Func_symbol *func_symbol);
+
+    void st_attach_scopes(Symtable *symtable, Scope *saved);
+    Scope *st_detach_scopes(Symtable *symtable);
 
 #ifdef __cplusplus
 }

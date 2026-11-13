@@ -28,7 +28,6 @@ struct Func_symbol
     bool return_explicit;
     bool builtin;
 };
-typedef struct Scope Scope;
 struct Scope
 {
     Table *table;
@@ -433,4 +432,28 @@ bool st_func_builtin(const Func_symbol *func_symbol)
         return false;
     }
     return func_symbol->builtin;
+}
+
+Scope *st_detach_scopes(Symtable *symtable)
+{
+    if(symtable == NULL)
+    {
+        return SYM_MEM_ERROR;
+    }
+    Scope *saved = symtable->top_scope;
+    symtable->top_scope = NULL;
+    return saved;
+}
+
+void st_attach_scopes(Symtable *symtable, Scope *saved)
+{
+    if(symtable == NULL)
+    {
+        return SYM_MEM_ERROR;
+    }
+    while (symtable->top_scope != NULL)
+    {
+        st_pop_scope(symtable);
+    }
+    symtable->top_scope = saved;
 }
