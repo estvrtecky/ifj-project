@@ -627,7 +627,6 @@ static Data_types visit_unop(Sema_ctx *ctx, AST_node *unop){
         return TYPE_UNKNOWN;
     }
     if (unop->as.unop.op == OP_not){
-        //! Temporary
         set_error(ctx, 99);
         return TYPE_UNKNOWN;
     }
@@ -651,7 +650,7 @@ static Data_types visit_call(Sema_ctx *ctx, AST_node *call){
             return TYPE_UNKNOWN;
         }
         if(call->as.call.args.items[i]->data_type == TYPE_BOOLEAN){
-            set_error(ctx, 5 /* 5 alebo 6 */);
+            set_error(ctx, 5);
             return TYPE_UNKNOWN;
         }
         coerce(ctx, st_func_param_type(f, i), &call->as.call.args.items[i], 5);
@@ -738,7 +737,7 @@ int sema_analyze(AST_node *program){
         pass2_bodies(&ctx, program);
     }
     if(!failed(&ctx)){
-        AST_func_def_data *m = &ctx.main_node->as.func_def;
+        AST_func_def_data *m = ctx.main_node->as.func_def;
         if (!m->return_explicit && m->return_type != TYPE_UNIT){
             set_error(&ctx, 6);
         }
