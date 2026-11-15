@@ -433,19 +433,119 @@ static ErrorCode reduce(Stack *s, size_t line) {
   return OK;
 }
 
+static ErrorCode parse_call(token_t *id_token, token_t *token, AST_node **out) {
+  *out = NULL;
+
+  AST_node *call = AST_new_call(id_token->attribute.s, (size_t)id_token->line);
+  free(id_token->attribute.s);
+  id_token->attribute.s = NULL;
+  if (call == NULL) {
+    return ERROR_INTERNAL;
+  }
+
+  ErrorCode err = (ErrorCode)get_next_token(token);
+  if (err != OK) {
+    AST_free(call);
+    return err;
+  }
+
+  if (token->type == TOKEN_R_PAREN) {
+    err = (ErrorCode)get_next_token(token);
+    if (err != OK) {
+      AST_free(call);
+      return err;
+    }
+    *out = call;
+    return OK;
+  }
+  while (true) {
+    AST_node *arg = NULL;
+    err = expr_parse(token, &arg);
+    if (err != OK) {
+      AST_free(call);
+      return err;
+    }
+    if (!AST_list_push(&call->as.call.args, arg)) {
+      AST_free(arg);
+      AST_free(call);
+      return ERROR_INTERNAL;
+    }
+    if (token->type == TOKEN_COMMA) {
+      err = (ErrorCode)get_next_token(token);
+      if (err != OK) {
+        AST_free(call);
+        return err;
+      }
+      if (token->type == TOKEN_R_PAREN) {
+        err = (ErrorCode)get_next_token(token);
+        if (err != OK) {
+          AST_free(call);
+          return err;
+        }
+        break;
+      }
+      continue;
+    }
+    if (token->type == TOKEN_R_PAREN) {
+      err = (ErrorCode)get_next_token(token);
+      if (err != OK) {
+        AST_free(call);
+        return err;
+      }
+      break;
+    }
+    AST_free(call);
+    return ERROR_SYNTAX;
+  }
+  *out = call;
+  return OK;
+}
+
+static ErrorCode make_id_or_call(token_t *id_token, token_t *token,
+                                 AST_node **out) {
+  if (token->type == TOKEN_L_PAREN) {
+    return parse_call(id_token, token, out);
+  }
+  return make_leaf(id_token, out);
+}
+
 /* Precedence syntax analysis of one expression. See expr.h for the
    interface (input/output token, result ownership, return values). */
-ErrorCode expr_parse(token_t *token, AST_node **result) {
+static ErrorCode parse_expression(token_t *token, token_t *first_id,
+                                  AST_node **result) {
   *result = NULL;
   Stack stack;
   stack_init(&stack);
   ErrorCode err = OK;
   if (!stack_push(&stack, make_term(T_Dollar_sign, NULL))) {
+    if (first_id != NULL) {
+      free(first_id->attribute.s);
+      first_id->attribute.s = NULL;
+    }
     return ERROR_INTERNAL;
   }
 
   int depth = 0;
   bool unary_allowed = true;
+
+  if (first_id != NULL) {
+    AST_node *leaf = NULL;
+    err = make_id_or_call(first_id, token, &leaf);
+    if (err != OK) {
+      goto cleanup;
+    }
+    if (!stack_insert_mark_after(&stack, 0)) {
+      AST_free(leaf);
+      err = ERROR_INTERNAL;
+      goto cleanup;
+    }
+    if (!stack_push(&stack, make_term(T_Letter_i, leaf))) {
+      AST_free(leaf);
+      err = ERROR_INTERNAL;
+      goto cleanup;
+    }
+    unary_allowed = false;
+  }
 
   while (true) {
     Terminal input_terminal = token_to_terminal(token, depth, unary_allowed);
@@ -484,12 +584,32 @@ ErrorCode expr_parse(token_t *token, AST_node **result) {
       }
     }
     AST_node *leaf = NULL;
+    if (input_terminal == T_Letter_i && token->type == TOKEN_ID) {
+      token_t id_token = *token;
+      err = get_next_token(token);
+      if (err != OK) {
+        free(id_token.attribute.s);
+        goto cleanup;
+      }
+      err = make_id_or_call(&id_token, token, &leaf);
+      if (err != OK) {
+        goto cleanup;
+      }
+      if (!stack_push(&stack, make_term(T_Letter_i, leaf))) {
+        AST_free(leaf);
+        err = ERROR_INTERNAL;
+        goto cleanup;
+      }
+      unary_allowed = false;
+      continue;
+    }
     if (input_terminal == T_Letter_i) {
       err = make_leaf(token, &leaf);
       if (err != OK) {
         goto cleanup;
       }
     }
+
     if (!stack_push(&stack, make_term(input_terminal, leaf))) {
       AST_free(leaf);
       err = ERROR_INTERNAL;
@@ -512,4 +632,13 @@ ErrorCode expr_parse(token_t *token, AST_node **result) {
 cleanup:
   stack_free(&stack);
   return err;
+}
+
+ErrorCode expr_parse(token_t *token, AST_node **result) {
+  return parse_expression(token, NULL, result);
+}
+
+ErrorCode expr_parse_after_id(token_t *id_token, token_t *token,
+                              AST_node **result) {
+  return parse_expression(token, id_token, result);
 }

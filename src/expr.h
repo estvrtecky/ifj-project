@@ -49,6 +49,9 @@ extern "C" {
 
 ErrorCode expr_parse(token_t *token, AST_node **result);
 
+ErrorCode expr_parse_after_id(token_t *id_token, token_t *token,
+                              AST_node **result);
+
 #ifdef __cplusplus
 }
 #endif
