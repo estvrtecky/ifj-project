@@ -14,6 +14,7 @@
 static token_t current;
 
 static ErrorCode expect(token_type_t token_type);
+static ErrorCode parse_func(AST_node **func_ast);
 static ErrorCode parse_prologue(void);
 
 /**
@@ -38,6 +39,51 @@ static ErrorCode expect(token_type_t token_type)
     }
 
     return get_next_token(&current);
+}
+
+static ErrorCode parse_func(AST_node **func_ast)
+{
+    (void)func_ast;
+    ErrorCode err;
+
+    switch (current.type)
+    {
+    case TOKEN_DEF:
+    case TOKEN_AT:
+        err = OK;
+
+        // parse_annotation()
+
+        err = expect(TOKEN_DEF);
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_ID);
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_L_PAREN);
+        if (err != OK)
+            return err;
+
+        // parse_params()
+
+        err = expect(TOKEN_R_PAREN);
+        if (err != OK)
+            return err;
+
+        // parse_return_type()
+
+        err = expect(TOKEN_ASSIGN);
+        if (err != OK)
+            return err;
+
+        // parse_func_body()
+
+        return err;
+    default:
+        return ERROR_SYNTAX;
+    }
 }
 
 static ErrorCode parse_prologue(void)
@@ -85,6 +131,23 @@ ErrorCode parse_program(AST_node **ast)
     if (err != OK)
         goto fail;
 
+    while (current.type != TOKEN_EOF)
+    {
+        AST_node *func = NULL;
+
+        err = parse_func(&func);
+        if (err != OK)
+            goto fail;
+
+        if (!AST_list_push(&program->as.program.funcs, func))
+        {
+            AST_free(func);
+            err = ERROR_INTERNAL;
+            goto fail;
+        }
+    }
+
+    *ast = program;
     return OK;
 
 fail:
