@@ -20,6 +20,8 @@ static ErrorCode parse_param(void);
 static ErrorCode parse_params(void);
 static ErrorCode parse_params_c(void);
 static ErrorCode parse_prologue(void);
+static ErrorCode parse_return_type(void);
+static ErrorCode parse_type(void);
 
 /**
  * @brief Expects the current token to be the given token type.
@@ -114,7 +116,9 @@ static ErrorCode parse_func(AST_node **func_ast)
         if (err != OK)
             return err;
 
-        // parse_return_type()
+        err = parse_return_type();
+        if (err != OK)
+            return err;
 
         err = expect(TOKEN_ASSIGN);
         if (err != OK)
@@ -141,7 +145,9 @@ static ErrorCode parse_param(void)
         if (err != OK)
             return err;
 
-        // parse_type()
+        err = parse_type();
+        if (err != OK)
+            return err;
 
         return err;
     default:
@@ -217,6 +223,62 @@ static ErrorCode parse_prologue(void)
         return ERROR_SYNTAX;
 
     return expect(TOKEN_EOL);
+}
+
+static ErrorCode parse_return_type(void)
+{
+    switch (current.type)
+    {
+    case TOKEN_COLON:
+        ErrorCode err = expect(TOKEN_COLON);
+        if (err != OK)
+            return err;
+
+        err = parse_type();
+        if (err != OK)
+            return err;
+
+        return err;
+    case TOKEN_ASSIGN:
+        return OK;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_type(void)
+{
+    ErrorCode err;
+
+    switch (current.type)
+    {
+    case TOKEN_TYPE_INT:
+        err = expect(TOKEN_TYPE_INT);
+        if (err != OK)
+            return err;
+
+        return err;
+    case TOKEN_TYPE_DOUBLE:
+        err = expect(TOKEN_TYPE_DOUBLE);
+        if (err != OK)
+            return err;
+
+        return err;
+    case TOKEN_TYPE_STRING:
+        err = expect(TOKEN_TYPE_STRING);
+        if (err != OK)
+            return err;
+
+        return err;
+    case TOKEN_TYPE_UNIT:
+        err = expect(TOKEN_TYPE_UNIT);
+        if (err != OK)
+            return err;
+
+        return err;
+    default:
+        return ERROR_SYNTAX;
+    }
 }
 
 ErrorCode parser_init(void)
