@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "expr.h"
 #include "parser.h"
 #include "scanner.h"
 
@@ -16,6 +17,7 @@ static token_t current;
 static ErrorCode expect(token_type_t token_type);
 static ErrorCode parse_annotation(void);
 static ErrorCode parse_func(AST_node **func_ast);
+static ErrorCode parse_func_body(void);
 static ErrorCode parse_param(void);
 static ErrorCode parse_params(void);
 static ErrorCode parse_params_c(void);
@@ -124,7 +126,41 @@ static ErrorCode parse_func(AST_node **func_ast)
         if (err != OK)
             return err;
 
-        // parse_func_body()
+        err = parse_func_body();
+        if (err != OK)
+            return err;
+
+        return err;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_func_body(void)
+{
+    ErrorCode err;
+
+    switch (current.type)
+    {
+    case TOKEN_ID:
+    case TOKEN_INT:
+    case TOKEN_DOUBLE:
+    case TOKEN_STRING:
+    case TOKEN_L_PAREN:
+    case TOKEN_SUB:
+    case TOKEN_ADD:
+        AST_node *expr_ast = NULL;
+        err = expr_parse(&current, &expr_ast);
+        if (err != OK)
+            return err;
+
+        return err;
+    case TOKEN_EOL:
+        err = expect(TOKEN_EOL);
+        if (err != OK)
+            return err;
+
+        // parse_block()
 
         return err;
     default:
