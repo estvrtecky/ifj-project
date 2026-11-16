@@ -14,6 +14,7 @@
 static token_t current;
 
 static ErrorCode expect(token_type_t token_type);
+static ErrorCode parse_annotation(void);
 static ErrorCode parse_func(AST_node **func_ast);
 static ErrorCode parse_prologue(void);
 
@@ -41,6 +42,42 @@ static ErrorCode expect(token_type_t token_type)
     return get_next_token(&current);
 }
 
+static ErrorCode parse_annotation(void)
+{
+    switch (current.type)
+    {
+    case TOKEN_AT:
+        ErrorCode err = expect(TOKEN_AT);
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_ID);
+        if (err != OK)
+            return err;
+
+        // annotation end
+        switch (current.type)
+        {
+        case TOKEN_EOL:
+            err = expect(TOKEN_EOL);
+            if (err != OK)
+                return err;
+
+            break;
+        case TOKEN_DEF:
+            break;
+        default:
+            return ERROR_SYNTAX;
+        }
+
+        return err;
+    case TOKEN_DEF:
+        return OK;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
 static ErrorCode parse_func(AST_node **func_ast)
 {
     (void)func_ast;
@@ -50,9 +87,9 @@ static ErrorCode parse_func(AST_node **func_ast)
     {
     case TOKEN_DEF:
     case TOKEN_AT:
-        err = OK;
-
-        // parse_annotation()
+        err = parse_annotation();
+        if (err != OK)
+            return err;
 
         err = expect(TOKEN_DEF);
         if (err != OK)
