@@ -13,6 +13,9 @@
 
 static token_t current;
 
+static ErrorCode expect(token_type_t token_type);
+static ErrorCode parse_prologue(void);
+
 /**
  * @brief Expects the current token to be the given token type.
  *
