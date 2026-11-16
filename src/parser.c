@@ -16,6 +16,9 @@ static token_t current;
 static ErrorCode expect(token_type_t token_type);
 static ErrorCode parse_annotation(void);
 static ErrorCode parse_func(AST_node **func_ast);
+static ErrorCode parse_param(void);
+static ErrorCode parse_params(void);
+static ErrorCode parse_params_c(void);
 static ErrorCode parse_prologue(void);
 
 /**
@@ -103,7 +106,9 @@ static ErrorCode parse_func(AST_node **func_ast)
         if (err != OK)
             return err;
 
-        // parse_params()
+        err = parse_params();
+        if (err != OK)
+            return err;
 
         err = expect(TOKEN_R_PAREN);
         if (err != OK)
@@ -118,6 +123,73 @@ static ErrorCode parse_func(AST_node **func_ast)
         // parse_func_body()
 
         return err;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_param(void)
+{
+    switch (current.type)
+    {
+    case TOKEN_ID:
+        ErrorCode err = expect(TOKEN_ID);
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_COLON);
+        if (err != OK)
+            return err;
+
+        // parse_type()
+
+        return err;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_params(void)
+{
+    switch (current.type)
+    {
+    case TOKEN_ID:
+        ErrorCode err = parse_param();
+        if (err != OK)
+            return err;
+
+        err = parse_params_c();
+        if (err != OK)
+            return err;
+
+        return err;
+    case TOKEN_R_PAREN:
+        return OK;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_params_c(void)
+{
+    switch (current.type)
+    {
+    case TOKEN_COMMA:
+        ErrorCode err = expect(TOKEN_COMMA);
+        if (err != OK)
+            return err;
+
+        err = parse_param();
+        if (err != OK)
+            return err;
+
+        err = parse_params_c();
+        if (err != OK)
+            return err;
+
+        return err;
+    case TOKEN_R_PAREN:
+        return OK;
     default:
         return ERROR_SYNTAX;
     }
