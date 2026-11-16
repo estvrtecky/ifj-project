@@ -126,11 +126,7 @@ static ErrorCode parse_func(AST_node **func_ast)
         if (err != OK)
             return err;
 
-        err = parse_func_body();
-        if (err != OK)
-            return err;
-
-        return err;
+        return parse_func_body();
     default:
         return ERROR_SYNTAX;
     }
@@ -181,11 +177,7 @@ static ErrorCode parse_param(void)
         if (err != OK)
             return err;
 
-        err = parse_type();
-        if (err != OK)
-            return err;
-
-        return err;
+        return parse_type();
     default:
         return ERROR_SYNTAX;
     }
@@ -200,11 +192,7 @@ static ErrorCode parse_params(void)
         if (err != OK)
             return err;
 
-        err = parse_params_c();
-        if (err != OK)
-            return err;
-
-        return err;
+        return parse_params_c();
     case TOKEN_R_PAREN:
         return OK;
     default:
@@ -225,11 +213,7 @@ static ErrorCode parse_params_c(void)
         if (err != OK)
             return err;
 
-        err = parse_params_c();
-        if (err != OK)
-            return err;
-
-        return err;
+        return parse_params_c();
     case TOKEN_R_PAREN:
         return OK;
     default:
