@@ -16,6 +16,8 @@ static token_t current;
 
 static ErrorCode expect(token_type_t token_type);
 static ErrorCode parse_annotation(void);
+static ErrorCode parse_block(void);
+static ErrorCode parse_block_body(void);
 static ErrorCode parse_func(AST_node **func_ast);
 static ErrorCode parse_func_body(void);
 static ErrorCode parse_param(void);
@@ -79,6 +81,49 @@ static ErrorCode parse_annotation(void)
 
         return err;
     case TOKEN_DEF:
+        return OK;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_block(void)
+{
+    switch (current.type)
+    {
+    case TOKEN_INDENT:
+        ErrorCode err = expect(TOKEN_INDENT);
+        if (err != OK)
+            return err;
+        fprintf(stderr, "INDENT ");
+
+        err = parse_block_body();
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_DEDENT);
+        if (err != OK)
+            return err;
+        fprintf(stderr, "DEDENT ");
+
+        return err;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_block_body(void)
+{
+    switch (current.type)
+    {
+    case TOKEN_ID:
+    case TOKEN_IF:
+    case TOKEN_RETURN:
+    case TOKEN_VAL:
+    case TOKEN_VAR:
+    case TOKEN_WHILE:
+        // parse_statement()
+        // parse_statement_list()
         return OK;
     default:
         return ERROR_SYNTAX;
@@ -156,9 +201,7 @@ static ErrorCode parse_func_body(void)
         if (err != OK)
             return err;
 
-        // parse_block()
-
-        return err;
+        return parse_block();
     default:
         return ERROR_SYNTAX;
     }
