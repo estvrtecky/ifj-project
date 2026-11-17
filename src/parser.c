@@ -20,8 +20,8 @@ static ErrorCode expect(token_type_t token_type);
 static char *extract_string(void);
 static void free_token(void);
 static ErrorCode parse_annotation(bool *is_main);
-static ErrorCode parse_block(void);
-static ErrorCode parse_block_body(void);
+static ErrorCode parse_block(AST_node **out);
+static ErrorCode parse_block_body(AST_node **block_ast);
 static ErrorCode parse_func(AST_node **func_ast);
 static ErrorCode parse_func_body(AST_node **out);
 static ErrorCode parse_id_tail(token_t id_token);
@@ -135,31 +135,37 @@ static ErrorCode parse_annotation(bool *is_main)
     }
 }
 
-static ErrorCode parse_block(void)
+static ErrorCode parse_block(AST_node **out)
 {
     switch (current.type)
     {
     case TOKEN_INDENT:
+        AST_node *block = AST_new_block(0);
         ErrorCode err = expect(TOKEN_INDENT);
         if (err != OK)
-            return err;
+            goto fail;
 
-        err = parse_block_body();
+        err = parse_block_body(&block);
         if (err != OK)
-            return err;
+            goto fail;
 
         err = expect(TOKEN_DEDENT);
         if (err != OK)
-            return err;
+            goto fail;
 
+        *out = block;
+        return OK;
+    fail:
+        AST_free(block);
         return err;
     default:
         return ERROR_SYNTAX;
     }
 }
 
-static ErrorCode parse_block_body(void)
+static ErrorCode parse_block_body(AST_node **block_ast)
 {
+    (void)block_ast;
     switch (current.type)
     {
     case TOKEN_ID:
@@ -276,23 +282,32 @@ static ErrorCode parse_func_body(AST_node **out)
         AST_node *expr_ast = NULL;
         err = expr_parse(&current, &expr_ast);
         if (err != OK)
-            goto fail;
+            goto fail_expr;
 
         err = expect(TOKEN_EOL);
         if (err != OK)
-            goto fail;
+            goto fail_expr;
 
         *out = expr_ast;
         return OK;
-    fail:
+    fail_expr:
         AST_free(expr_ast);
         return err;
     case TOKEN_EOL:
+        AST_node *block_ast = NULL;
         err = expect(TOKEN_EOL);
         if (err != OK)
-            return err;
+            goto fail_block;
 
-        return parse_block();
+        err = parse_block(&block_ast);
+        if (err != OK)
+            goto fail_block;
+
+        *out = block_ast;
+        return OK;
+    fail_block:
+        AST_free(block_ast);
+        return err;
     default:
         return ERROR_SYNTAX;
     }
@@ -565,53 +580,73 @@ static ErrorCode parse_statement(void)
     switch (current.type)
     {
     case TOKEN_IF:
+        AST_node *if_block = NULL;
+        AST_node *else_block = NULL;
         err = expect(TOKEN_IF);
         if (err != OK)
-            return err;
+            goto fail_if;
 
         err = expr_parse(&current, &expr_ast);
         if (err != OK)
-            return err;
+            goto fail_if;
 
         err = expect(TOKEN_THEN);
         if (err != OK)
-            return err;
+            goto fail_if;
 
         err = expect(TOKEN_EOL);
         if (err != OK)
-            return err;
+            goto fail_if;
 
-        err = parse_block();
+        err = parse_block(&if_block);
         if (err != OK)
-            return err;
+            goto fail_if;
 
         err = expect(TOKEN_ELSE);
         if (err != OK)
-            return err;
+            goto fail_if;
 
         err = expect(TOKEN_EOL);
         if (err != OK)
-            return err;
+            goto fail_if;
 
-        return parse_block();
+        err = parse_block(&else_block);
+        if (err != OK)
+            goto fail_if;
+
+        return OK;
+    fail_if:
+        AST_free(expr_ast);
+        AST_free(if_block);
+        AST_free(else_block);
+        return err;
     case TOKEN_WHILE:
+        AST_node *while_block = NULL;
         err = expect(TOKEN_WHILE);
         if (err != OK)
-            return err;
+            goto fail_while;
 
         err = expr_parse(&current, &expr_ast);
         if (err != OK)
-            return err;
+            goto fail_while;
 
         err = expect(TOKEN_DO);
         if (err != OK)
-            return err;
+            goto fail_while;
 
         err = expect(TOKEN_EOL);
         if (err != OK)
-            return err;
+            goto fail_while;
 
-        return parse_block();
+        err = parse_block(&while_block);
+        if (err != OK)
+            goto fail_while;
+
+        return OK;
+    fail_while:
+        AST_free(expr_ast);
+        AST_free(while_block);
+        return err;
     case TOKEN_ID:
     case TOKEN_RETURN:
     case TOKEN_VAL:
