@@ -22,7 +22,7 @@ static ErrorCode parse_annotation(bool *is_main);
 static ErrorCode parse_block(void);
 static ErrorCode parse_block_body(void);
 static ErrorCode parse_func(AST_node **func_ast);
-static ErrorCode parse_func_body(void);
+static ErrorCode parse_func_body(AST_node **out);
 static ErrorCode parse_id_tail(token_t id_token);
 static ErrorCode parse_line_statement(void);
 static ErrorCode parse_line_statement_c(void);
@@ -185,6 +185,7 @@ static ErrorCode parse_func(AST_node **out)
         bool is_main = false;
         char *func_id = NULL;
         AST_node *func_ast = NULL;
+        AST_node *func_body = NULL;
 
         err = parse_annotation(&is_main);
         if (err != OK)
@@ -229,9 +230,10 @@ static ErrorCode parse_func(AST_node **out)
         if (err != OK)
             goto fail;
 
-        err = parse_func_body();
+        err = parse_func_body(&func_body);
         if (err != OK)
             goto fail;
+        func_ast->as.func_def.body = func_body;
 
         *out = func_ast;
         free(func_id);
@@ -240,14 +242,16 @@ static ErrorCode parse_func(AST_node **out)
     fail:
         free(func_id);
         AST_free(func_ast);
+        AST_free(func_body);
         return err;
     default:
         return ERROR_SYNTAX;
     }
 }
 
-static ErrorCode parse_func_body(void)
+static ErrorCode parse_func_body(AST_node **out)
 {
+    *out = NULL;
     ErrorCode err;
 
     switch (current.type)
@@ -262,9 +266,17 @@ static ErrorCode parse_func_body(void)
         AST_node *expr_ast = NULL;
         err = expr_parse(&current, &expr_ast);
         if (err != OK)
-            return err;
+            goto fail;
 
-        return expect(TOKEN_EOL);
+        err = expect(TOKEN_EOL);
+        if (err != OK)
+            goto fail;
+
+        *out = expr_ast;
+        return OK;
+    fail:
+        AST_free(expr_ast);
+        return err;
     case TOKEN_EOL:
         err = expect(TOKEN_EOL);
         if (err != OK)
