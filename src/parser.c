@@ -18,6 +18,7 @@ static token_t current;
 
 static ErrorCode expect(token_type_t token_type);
 static char *extract_string(void);
+static void free_token(void);
 static ErrorCode parse_annotation(bool *is_main);
 static ErrorCode parse_block(void);
 static ErrorCode parse_block_body(void);
@@ -52,12 +53,7 @@ static ErrorCode expect(token_type_t token_type)
     if (current.type != token_type)
         return ERROR_SYNTAX;
 
-    if (current.type == TOKEN_ID || current.type == TOKEN_STRING)
-    {
-        free(current.attribute.s);
-        current.attribute.s = NULL;
-    }
-
+    free_token();
     return get_next_token(&current);
 }
 
@@ -73,6 +69,18 @@ static char *extract_string(void)
     char *s = current.attribute.s;
     current.attribute.s = NULL;
     return s;
+}
+
+/**
+ * @brief Frees the data of the current token.
+ */
+static void free_token(void)
+{
+    if (current.type == TOKEN_ID || current.type == TOKEN_STRING)
+    {
+        free(current.attribute.s);
+        current.attribute.s = NULL;
+    }
 }
 
 /**
@@ -748,6 +756,7 @@ ErrorCode parse_program(AST_node **ast)
     return OK;
 
 fail:
+    free_token();
     AST_free(program);
     return err;
 }
