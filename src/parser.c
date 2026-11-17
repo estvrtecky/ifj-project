@@ -20,12 +20,19 @@ static ErrorCode parse_block(void);
 static ErrorCode parse_block_body(void);
 static ErrorCode parse_func(AST_node **func_ast);
 static ErrorCode parse_func_body(void);
+static ErrorCode parse_id_tail(token_t id_token);
+static ErrorCode parse_line_statement(void);
+static ErrorCode parse_line_statement_c(void);
 static ErrorCode parse_param(void);
 static ErrorCode parse_params(void);
 static ErrorCode parse_params_c(void);
 static ErrorCode parse_prologue(void);
 static ErrorCode parse_return_type(void);
+static ErrorCode parse_return_value(void);
+static ErrorCode parse_statement(void);
+static ErrorCode parse_statement_list(void);
 static ErrorCode parse_type(void);
+static ErrorCode parse_var_type(void);
 
 /**
  * @brief Expects the current token to be the given token type.
@@ -95,7 +102,6 @@ static ErrorCode parse_block(void)
         ErrorCode err = expect(TOKEN_INDENT);
         if (err != OK)
             return err;
-        fprintf(stderr, "INDENT ");
 
         err = parse_block_body();
         if (err != OK)
@@ -104,7 +110,6 @@ static ErrorCode parse_block(void)
         err = expect(TOKEN_DEDENT);
         if (err != OK)
             return err;
-        fprintf(stderr, "DEDENT ");
 
         return err;
     default:
@@ -128,9 +133,11 @@ static ErrorCode parse_block_body(void)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
-        // parse_statement()
-        // parse_statement_list()
-        return OK;
+        ErrorCode err = parse_statement();
+        if (err != OK)
+            return err;
+
+        return parse_statement_list();
     default:
         return ERROR_SYNTAX;
     }
@@ -201,13 +208,138 @@ static ErrorCode parse_func_body(void)
         if (err != OK)
             return err;
 
-        return err;
+        return expect(TOKEN_EOL);
     case TOKEN_EOL:
         err = expect(TOKEN_EOL);
         if (err != OK)
             return err;
 
         return parse_block();
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_id_tail(token_t id_token)
+{
+    (void)id_token;
+    ErrorCode err;
+    AST_node *expr_ast = NULL;
+
+    switch (current.type)
+    {
+    case TOKEN_ADD:
+    case TOKEN_SUB:
+    case TOKEN_MUL:
+    case TOKEN_DIV:
+    case TOKEN_EQ:
+    case TOKEN_NE:
+    case TOKEN_LT:
+    case TOKEN_LE:
+    case TOKEN_GT:
+    case TOKEN_GE:
+        return expr_parse(&current, &expr_ast);
+    case TOKEN_ASSIGN:
+        err = expect(TOKEN_ASSIGN);
+        if (err != OK)
+            return err;
+
+        return expr_parse(&current, &expr_ast);
+    case TOKEN_SEMICOLON:
+    case TOKEN_EOL:
+        return OK;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_line_statement(void)
+{
+    ErrorCode err;
+    AST_node *expr_ast = NULL;
+
+    switch (current.type)
+    {
+    case TOKEN_VAR:
+        err = expect(TOKEN_VAR);
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_ID);
+        if (err != OK)
+            return err;
+
+        err = parse_var_type();
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_ASSIGN);
+        if (err != OK)
+            return err;
+
+        return expr_parse(&current, &expr_ast);
+    case TOKEN_VAL:
+        err = expect(TOKEN_VAL);
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_ID);
+        if (err != OK)
+            return err;
+
+        err = parse_var_type();
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_ASSIGN);
+        if (err != OK)
+            return err;
+
+        return expr_parse(&current, &expr_ast);
+    case TOKEN_RETURN:
+        err = expect(TOKEN_RETURN);
+        if (err != OK)
+            return err;
+
+        return parse_return_value();
+    case TOKEN_INT:
+    case TOKEN_DOUBLE:
+    case TOKEN_STRING:
+    case TOKEN_L_PAREN:
+    case TOKEN_SUB:
+    case TOKEN_ADD:
+        return expr_parse(&current, &expr_ast);
+    case TOKEN_ID:
+        token_t id_token = {current.line,
+                            current.type,
+                            current.attribute};
+
+        err = expect(TOKEN_ID);
+        if (err != OK)
+            return err;
+
+        return parse_id_tail(id_token);
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_line_statement_c(void)
+{
+    switch (current.type)
+    {
+    case TOKEN_SEMICOLON:
+        ErrorCode err = expect(TOKEN_SEMICOLON);
+        if (err != OK)
+            return err;
+
+        err = parse_line_statement();
+        if (err != OK)
+            return err;
+
+        return parse_line_statement_c();
+    case TOKEN_EOL:
+        return OK;
     default:
         return ERROR_SYNTAX;
     }
@@ -315,6 +447,138 @@ static ErrorCode parse_return_type(void)
     }
 }
 
+static ErrorCode parse_return_value(void)
+{
+    switch (current.type)
+    {
+    case TOKEN_ID:
+    case TOKEN_INT:
+    case TOKEN_DOUBLE:
+    case TOKEN_STRING:
+    case TOKEN_L_PAREN:
+    case TOKEN_SUB:
+    case TOKEN_ADD:
+        AST_node *expr_ast = NULL;
+        return expr_parse(&current, &expr_ast);
+    case TOKEN_SEMICOLON:
+    case TOKEN_EOL:
+        return OK;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_statement(void)
+{
+    ErrorCode err;
+    AST_node *expr_ast = NULL;
+
+    switch (current.type)
+    {
+    case TOKEN_IF:
+        err = expect(TOKEN_IF);
+        if (err != OK)
+            return err;
+
+        err = expr_parse(&current, &expr_ast);
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_THEN);
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_EOL);
+        if (err != OK)
+            return err;
+
+        err = parse_block();
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_ELSE);
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_EOL);
+        if (err != OK)
+            return err;
+
+        return parse_block();
+    case TOKEN_WHILE:
+        err = expect(TOKEN_WHILE);
+        if (err != OK)
+            return err;
+
+        err = expr_parse(&current, &expr_ast);
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_DO);
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_EOL);
+        if (err != OK)
+            return err;
+
+        return parse_block();
+    case TOKEN_ID:
+    case TOKEN_RETURN:
+    case TOKEN_VAL:
+    case TOKEN_VAR:
+    case TOKEN_INT:
+    case TOKEN_DOUBLE:
+    case TOKEN_STRING:
+    case TOKEN_L_PAREN:
+    case TOKEN_SUB:
+    case TOKEN_ADD:
+        err = parse_line_statement();
+        if (err != OK)
+            return err;
+
+        err = parse_line_statement_c();
+        if (err != OK)
+            return err;
+
+        err = expect(TOKEN_EOL);
+        if (err != OK)
+            return err;
+
+        return err;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_statement_list(void)
+{
+    switch (current.type)
+    {
+    case TOKEN_ID:
+    case TOKEN_IF:
+    case TOKEN_RETURN:
+    case TOKEN_VAR:
+    case TOKEN_VAL:
+    case TOKEN_WHILE:
+    case TOKEN_INT:
+    case TOKEN_DOUBLE:
+    case TOKEN_STRING:
+    case TOKEN_L_PAREN:
+    case TOKEN_SUB:
+    case TOKEN_ADD:
+        ErrorCode err = parse_statement();
+        if (err != OK)
+            return err;
+
+        return parse_statement_list();
+    case TOKEN_DEDENT:
+        return OK;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
 static ErrorCode parse_type(void)
 {
     ErrorCode err;
@@ -345,6 +609,23 @@ static ErrorCode parse_type(void)
             return err;
 
         return err;
+    default:
+        return ERROR_SYNTAX;
+    }
+}
+
+static ErrorCode parse_var_type(void)
+{
+    switch (current.type)
+    {
+    case TOKEN_COLON:
+        ErrorCode err = expect(TOKEN_COLON);
+        if (err != OK)
+            return err;
+
+        return parse_type();
+    case TOKEN_ASSIGN:
+        return OK;
     default:
         return ERROR_SYNTAX;
     }
