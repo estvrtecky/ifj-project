@@ -73,6 +73,8 @@ static char *extract_string(void)
 
 /**
  * @brief Frees the data of the current token.
+ *
+ * Frees the allocated string and sets the pointer to NULL if the current token type is TOKEN_ID or TOKEN_STRING.
  */
 static void free_token(void)
 {
