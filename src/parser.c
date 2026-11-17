@@ -26,9 +26,9 @@ static ErrorCode parse_func_body(void);
 static ErrorCode parse_id_tail(token_t id_token);
 static ErrorCode parse_line_statement(void);
 static ErrorCode parse_line_statement_c(void);
-static ErrorCode parse_param(void);
-static ErrorCode parse_params(void);
-static ErrorCode parse_params_c(void);
+static ErrorCode parse_param(AST_node **func_ast);
+static ErrorCode parse_params(AST_node **func_ast);
+static ErrorCode parse_params_c(AST_node **func_ast);
 static ErrorCode parse_prologue(void);
 static ErrorCode parse_return_type(Data_types *data_type);
 static ErrorCode parse_return_value(void);
@@ -174,9 +174,8 @@ static ErrorCode parse_block_body(void)
     }
 }
 
-static ErrorCode parse_func(AST_node **func_ast)
+static ErrorCode parse_func(AST_node **out)
 {
-    (void)func_ast;
     ErrorCode err;
 
     switch (current.type)
@@ -184,41 +183,64 @@ static ErrorCode parse_func(AST_node **func_ast)
     case TOKEN_DEF:
     case TOKEN_AT:
         bool is_main = false;
+        char *func_id = NULL;
+        AST_node *func_ast = NULL;
 
         err = parse_annotation(&is_main);
         if (err != OK)
-            return err;
+            goto fail;
 
         err = expect(TOKEN_DEF);
         if (err != OK)
-            return err;
+            goto fail;
 
+        if (current.type != TOKEN_ID)
+        {
+            err = ERROR_SYNTAX;
+            goto fail;
+        }
+
+        func_id = extract_string();
         err = expect(TOKEN_ID);
         if (err != OK)
-            return err;
+            goto fail;
+
+        func_ast = AST_new_func_def(func_id, 0);
 
         err = expect(TOKEN_L_PAREN);
         if (err != OK)
-            return err;
+            goto fail;
 
-        err = parse_params();
+        err = parse_params(&func_ast);
         if (err != OK)
-            return err;
+            goto fail;
 
         err = expect(TOKEN_R_PAREN);
         if (err != OK)
-            return err;
+            goto fail;
 
-        Data_types data_type;
+        Data_types data_type = TYPE_UNKNOWN;
         err = parse_return_type(&data_type);
         if (err != OK)
-            return err;
+            goto fail;
+        func_ast->as.func_def.return_type = data_type;
 
         err = expect(TOKEN_ASSIGN);
         if (err != OK)
-            return err;
+            goto fail;
 
-        return parse_func_body();
+        err = parse_func_body();
+        if (err != OK)
+            goto fail;
+
+        *out = func_ast;
+        free(func_id);
+        return err;
+
+    fail:
+        free(func_id);
+        AST_free(func_ast);
+        return err;
     default:
         return ERROR_SYNTAX;
     }
@@ -380,36 +402,49 @@ static ErrorCode parse_line_statement_c(void)
     }
 }
 
-static ErrorCode parse_param(void)
+static ErrorCode parse_param(AST_node **func_ast)
 {
     switch (current.type)
     {
     case TOKEN_ID:
+        char *id = extract_string();
         ErrorCode err = expect(TOKEN_ID);
         if (err != OK)
-            return err;
+            goto fail;
 
         err = expect(TOKEN_COLON);
         if (err != OK)
-            return err;
+            goto fail;
 
         Data_types data_type;
-        return parse_type(&data_type);
+        err = parse_type(&data_type);
+        if (err != OK)
+            goto fail;
+
+        if (!AST_func_add_param(*func_ast, id, data_type))
+        {
+            err = ERROR_INTERNAL;
+            goto fail;
+        }
+
+    fail:
+        free(id);
+        return err;
     default:
         return ERROR_SYNTAX;
     }
 }
 
-static ErrorCode parse_params(void)
+static ErrorCode parse_params(AST_node **func_ast)
 {
     switch (current.type)
     {
     case TOKEN_ID:
-        ErrorCode err = parse_param();
+        ErrorCode err = parse_param(func_ast);
         if (err != OK)
             return err;
 
-        return parse_params_c();
+        return parse_params_c(func_ast);
     case TOKEN_R_PAREN:
         return OK;
     default:
@@ -417,7 +452,7 @@ static ErrorCode parse_params(void)
     }
 }
 
-static ErrorCode parse_params_c(void)
+static ErrorCode parse_params_c(AST_node **func_ast)
 {
     switch (current.type)
     {
@@ -426,11 +461,11 @@ static ErrorCode parse_params_c(void)
         if (err != OK)
             return err;
 
-        err = parse_param();
+        err = parse_param(func_ast);
         if (err != OK)
             return err;
 
-        return parse_params_c();
+        return parse_params_c(func_ast);
     case TOKEN_R_PAREN:
         return OK;
     default:
