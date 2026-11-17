@@ -12,6 +12,7 @@
 #include "expr.h"
 #include "parser.h"
 #include "scanner.h"
+#include "types.h"
 
 static token_t current;
 
@@ -29,12 +30,12 @@ static ErrorCode parse_param(void);
 static ErrorCode parse_params(void);
 static ErrorCode parse_params_c(void);
 static ErrorCode parse_prologue(void);
-static ErrorCode parse_return_type(void);
+static ErrorCode parse_return_type(Data_types *data_type);
 static ErrorCode parse_return_value(void);
 static ErrorCode parse_statement(void);
 static ErrorCode parse_statement_list(void);
-static ErrorCode parse_type(void);
-static ErrorCode parse_var_type(void);
+static ErrorCode parse_type(Data_types *data_type);
+static ErrorCode parse_var_type(Data_types *data_type);
 
 /**
  * @brief Expects the current token to be the given token type.
@@ -208,7 +209,8 @@ static ErrorCode parse_func(AST_node **func_ast)
         if (err != OK)
             return err;
 
-        err = parse_return_type();
+        Data_types data_type;
+        err = parse_return_type(&data_type);
         if (err != OK)
             return err;
 
@@ -288,6 +290,7 @@ static ErrorCode parse_id_tail(token_t id_token)
 static ErrorCode parse_line_statement(void)
 {
     ErrorCode err;
+    Data_types data_type;
     AST_node *expr_ast = NULL;
 
     switch (current.type)
@@ -301,7 +304,7 @@ static ErrorCode parse_line_statement(void)
         if (err != OK)
             return err;
 
-        err = parse_var_type();
+        err = parse_var_type(&data_type);
         if (err != OK)
             return err;
 
@@ -319,7 +322,7 @@ static ErrorCode parse_line_statement(void)
         if (err != OK)
             return err;
 
-        err = parse_var_type();
+        err = parse_var_type(&data_type);
         if (err != OK)
             return err;
 
@@ -390,7 +393,8 @@ static ErrorCode parse_param(void)
         if (err != OK)
             return err;
 
-        return parse_type();
+        Data_types data_type;
+        return parse_type(&data_type);
     default:
         return ERROR_SYNTAX;
     }
@@ -458,7 +462,7 @@ static ErrorCode parse_prologue(void)
     return expect(TOKEN_EOL);
 }
 
-static ErrorCode parse_return_type(void)
+static ErrorCode parse_return_type(Data_types *data_type)
 {
     switch (current.type)
     {
@@ -467,11 +471,7 @@ static ErrorCode parse_return_type(void)
         if (err != OK)
             return err;
 
-        err = parse_type();
-        if (err != OK)
-            return err;
-
-        return err;
+        return parse_type(data_type);
     case TOKEN_ASSIGN:
         return OK;
     default:
@@ -611,7 +611,10 @@ static ErrorCode parse_statement_list(void)
     }
 }
 
-static ErrorCode parse_type(void)
+/**
+ * @brief Parses type.
+ */
+static ErrorCode parse_type(Data_types *data_type)
 {
     ErrorCode err;
 
@@ -619,34 +622,28 @@ static ErrorCode parse_type(void)
     {
     case TOKEN_TYPE_INT:
         err = expect(TOKEN_TYPE_INT);
-        if (err != OK)
-            return err;
-
-        return err;
+        *data_type = TYPE_INT;
+        break;
     case TOKEN_TYPE_DOUBLE:
         err = expect(TOKEN_TYPE_DOUBLE);
-        if (err != OK)
-            return err;
-
-        return err;
+        *data_type = TYPE_DOUBLE;
+        break;
     case TOKEN_TYPE_STRING:
         err = expect(TOKEN_TYPE_STRING);
-        if (err != OK)
-            return err;
-
-        return err;
+        *data_type = TYPE_STRING;
+        break;
     case TOKEN_TYPE_UNIT:
         err = expect(TOKEN_TYPE_UNIT);
-        if (err != OK)
-            return err;
-
-        return err;
+        *data_type = TYPE_UNIT;
+        break;
     default:
         return ERROR_SYNTAX;
     }
+
+    return err;
 }
 
-static ErrorCode parse_var_type(void)
+static ErrorCode parse_var_type(Data_types *data_type)
 {
     switch (current.type)
     {
@@ -655,7 +652,7 @@ static ErrorCode parse_var_type(void)
         if (err != OK)
             return err;
 
-        return parse_type();
+        return parse_type(data_type);
     case TOKEN_ASSIGN:
         return OK;
     default:
