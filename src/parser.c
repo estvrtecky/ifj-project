@@ -122,6 +122,12 @@ static ErrorCode parse_block_body(void)
     case TOKEN_VAL:
     case TOKEN_VAR:
     case TOKEN_WHILE:
+    case TOKEN_INT:
+    case TOKEN_DOUBLE:
+    case TOKEN_STRING:
+    case TOKEN_L_PAREN:
+    case TOKEN_SUB:
+    case TOKEN_ADD:
         // parse_statement()
         // parse_statement_list()
         return OK;
