@@ -5,6 +5,7 @@
     # Authors: Erik Stvrtecky (xstvrte00)
 */
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -15,7 +16,8 @@
 static token_t current;
 
 static ErrorCode expect(token_type_t token_type);
-static ErrorCode parse_annotation(void);
+static char *extract_string(void);
+static ErrorCode parse_annotation(bool *is_main);
 static ErrorCode parse_block(void);
 static ErrorCode parse_block_body(void);
 static ErrorCode parse_func(AST_node **func_ast);
@@ -58,18 +60,43 @@ static ErrorCode expect(token_type_t token_type)
     return get_next_token(&current);
 }
 
-static ErrorCode parse_annotation(void)
+/**
+ * @brief Extracts the string from the current token and sets the current token's string attribute to NULL.
+ *
+ * The caller is responsible for freeing the memory.
+ *
+ * @return Pointer to the extracted string.
+ */
+static char *extract_string(void)
+{
+    char *s = current.attribute.s;
+    current.attribute.s = NULL;
+    return s;
+}
+
+/**
+ * @brief Parses annotation.
+ */
+static ErrorCode parse_annotation(bool *is_main)
 {
     switch (current.type)
     {
     case TOKEN_AT:
+        char *id = NULL;
         ErrorCode err = expect(TOKEN_AT);
         if (err != OK)
-            return err;
+            goto fail;
 
+        if (current.type != TOKEN_ID)
+        {
+            err = ERROR_SYNTAX;
+            goto fail;
+        }
+
+        id = extract_string();
         err = expect(TOKEN_ID);
         if (err != OK)
-            return err;
+            goto fail;
 
         // annotation end
         switch (current.type)
@@ -77,15 +104,18 @@ static ErrorCode parse_annotation(void)
         case TOKEN_EOL:
             err = expect(TOKEN_EOL);
             if (err != OK)
-                return err;
-
+                goto fail;
             break;
         case TOKEN_DEF:
             break;
         default:
-            return ERROR_SYNTAX;
+            err = ERROR_SYNTAX;
+            goto fail;
         }
 
+        *is_main = strcmp(id, "main") == 0;
+    fail:
+        free(id);
         return err;
     case TOKEN_DEF:
         return OK;
@@ -152,7 +182,9 @@ static ErrorCode parse_func(AST_node **func_ast)
     {
     case TOKEN_DEF:
     case TOKEN_AT:
-        err = parse_annotation();
+        bool is_main = false;
+
+        err = parse_annotation(&is_main);
         if (err != OK)
             return err;
 
