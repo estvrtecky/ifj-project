@@ -5,6 +5,9 @@
     # Authors: Erik Stvrtecky (xstvrte00)
 */
 
+// TODO: Unite parsing type functions
+// TODO: Implement BOOLTHEN
+
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,7 +27,7 @@ static ErrorCode parse_block(AST_node **out);
 static ErrorCode parse_block_body(AST_node_list *stmt_list);
 static ErrorCode parse_func(AST_node **func_ast);
 static ErrorCode parse_func_body(AST_node **out);
-static ErrorCode parse_id_tail(token_t id_token);
+static ErrorCode parse_id_tail(AST_node_list *stmt_list, token_t id_token);
 static ErrorCode parse_line_statement(AST_node_list *stmt_list);
 static ErrorCode parse_line_statement_c(AST_node_list *stmt_list);
 static ErrorCode parse_param(AST_node **func_ast);
@@ -315,11 +318,11 @@ static ErrorCode parse_func_body(AST_node **out)
     }
 }
 
-static ErrorCode parse_id_tail(token_t id_token)
+static ErrorCode parse_id_tail(AST_node_list *stmt_list, token_t id_token)
 {
-    (void)id_token;
     ErrorCode err;
     AST_node *expr_ast = NULL;
+    AST_node *statement = NULL;
 
     switch (current.type)
     {
@@ -333,19 +336,47 @@ static ErrorCode parse_id_tail(token_t id_token)
     case TOKEN_LE:
     case TOKEN_GT:
     case TOKEN_GE:
-        return expr_parse(&current, &expr_ast);
+        err = expr_parse_after_id(&id_token, &current, &expr_ast);
+        if (err != OK)
+            goto fail;
+
+        statement = AST_new_expr_stmt(expr_ast, 0);
+        if (!AST_list_push(stmt_list, statement))
+        {
+            err = ERROR_INTERNAL;
+            goto fail;
+        }
+
+        return OK;
     case TOKEN_ASSIGN:
         err = expect(TOKEN_ASSIGN);
         if (err != OK)
-            return err;
+            goto fail;
 
-        return expr_parse(&current, &expr_ast);
+        err = expr_parse(&current, &expr_ast);
+        if (err != OK)
+            goto fail;
+
+        char *id = id_token.attribute.s;
+        statement = AST_new_assign(id, expr_ast, 0);
+        if (!AST_list_push(stmt_list, statement))
+        {
+            err = ERROR_INTERNAL;
+            goto fail;
+        }
+
+        return OK;
     case TOKEN_SEMICOLON:
     case TOKEN_EOL:
         return OK;
     default:
         return ERROR_SYNTAX;
     }
+
+fail:
+    AST_free(expr_ast);
+    AST_free(statement);
+    return err;
 }
 
 static ErrorCode parse_line_statement(AST_node_list *stmt_list)
@@ -455,17 +486,41 @@ static ErrorCode parse_line_statement(AST_node_list *stmt_list)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
-        return expr_parse(&current, &expr_ast);
+        err = expr_parse(&current, &expr_ast);
+        if (err != OK)
+            goto fail;
+
+        statement = AST_new_expr_stmt(expr_ast, 0);
+        if (!AST_list_push(stmt_list, statement))
+        {
+            err = ERROR_INTERNAL;
+            goto fail;
+        }
+
+        return OK;
     case TOKEN_ID:
         token_t id_token = {current.line,
                             current.type,
                             current.attribute};
+        current.attribute.s = NULL;
 
         err = expect(TOKEN_ID);
         if (err != OK)
-            return err;
+        {
+            free(id_token.attribute.s);
+            id_token.attribute.s = NULL;
+            goto fail;
+        }
 
-        return parse_id_tail(id_token);
+        err = parse_id_tail(stmt_list, id_token);
+        if (err != OK)
+        {
+            free(id_token.attribute.s);
+            id_token.attribute.s = NULL;
+            goto fail;
+        }
+
+        return OK;
     default:
         return ERROR_SYNTAX;
     }
