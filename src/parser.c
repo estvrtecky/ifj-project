@@ -33,8 +33,8 @@ static ErrorCode parse_params_c(AST_node **func_ast);
 static ErrorCode parse_prologue(void);
 static ErrorCode parse_return_type(Data_types *data_type);
 static ErrorCode parse_return_value(void);
-static ErrorCode parse_statement(void);
-static ErrorCode parse_statement_list(void);
+static ErrorCode parse_statement(AST_node **out);
+static ErrorCode parse_statement_list(AST_node **block_ast);
 static ErrorCode parse_type(Data_types *data_type);
 static ErrorCode parse_var_type(Data_types *data_type);
 
@@ -180,11 +180,25 @@ static ErrorCode parse_block_body(AST_node **block_ast)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
-        ErrorCode err = parse_statement();
+        AST_node *statement = NULL;
+        ErrorCode err = parse_statement(&statement);
         if (err != OK)
-            return err;
+            goto fail;
 
-        return parse_statement_list();
+        if (!AST_list_push(&(*block_ast)->as.block.stmts, statement))
+        {
+            err = ERROR_INTERNAL;
+            goto fail;
+        }
+
+        err = parse_statement_list(block_ast);
+        if (err != OK)
+            goto fail;
+
+        return OK;
+    fail:
+        AST_free(statement);
+        return err;
     default:
         return ERROR_SYNTAX;
     }
@@ -572,7 +586,7 @@ static ErrorCode parse_return_value(void)
     }
 }
 
-static ErrorCode parse_statement(void)
+static ErrorCode parse_statement(AST_node **out)
 {
     ErrorCode err;
     AST_node *expr_ast = NULL;
@@ -614,6 +628,7 @@ static ErrorCode parse_statement(void)
         if (err != OK)
             goto fail_if;
 
+        *out = AST_new_if(expr_ast, if_block, else_block, 0);
         return OK;
     fail_if:
         AST_free(expr_ast);
@@ -642,6 +657,7 @@ static ErrorCode parse_statement(void)
         if (err != OK)
             goto fail_while;
 
+        *out = AST_new_while(expr_ast, while_block, 0);
         return OK;
     fail_while:
         AST_free(expr_ast);
@@ -675,7 +691,7 @@ static ErrorCode parse_statement(void)
     }
 }
 
-static ErrorCode parse_statement_list(void)
+static ErrorCode parse_statement_list(AST_node **block_ast)
 {
     switch (current.type)
     {
@@ -691,11 +707,25 @@ static ErrorCode parse_statement_list(void)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
-        ErrorCode err = parse_statement();
+        AST_node *statement = NULL;
+        ErrorCode err = parse_statement(&statement);
         if (err != OK)
-            return err;
+            goto fail;
 
-        return parse_statement_list();
+        if (!AST_list_push(&(*block_ast)->as.block.stmts, statement))
+        {
+            err = ERROR_INTERNAL;
+            goto fail;
+        }
+
+        err = parse_statement_list(block_ast);
+        if (err != OK)
+            goto fail;
+
+        return OK;
+    fail:
+        AST_free(statement);
+        return err;
     case TOKEN_DEDENT:
         return OK;
     default:
