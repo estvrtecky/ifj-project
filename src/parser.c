@@ -32,7 +32,7 @@ static ErrorCode parse_params(AST_node **func_ast);
 static ErrorCode parse_params_c(AST_node **func_ast);
 static ErrorCode parse_prologue(void);
 static ErrorCode parse_return_type(Data_types *data_type);
-static ErrorCode parse_return_value(void);
+static ErrorCode parse_return_value(AST_node **out);
 static ErrorCode parse_statement(AST_node_list *stmt_list);
 static ErrorCode parse_statement_list(AST_node_list *stmt_list);
 static ErrorCode parse_type(Data_types *data_type);
@@ -241,6 +241,8 @@ static ErrorCode parse_func(AST_node **out)
         if (err != OK)
             goto fail;
         func_ast->as.func_def.return_type = data_type;
+        if (data_type != TYPE_UNKNOWN)
+            func_ast->as.func_def.return_explicit = true;
 
         err = expect(TOKEN_ASSIGN);
         if (err != OK)
@@ -433,9 +435,20 @@ static ErrorCode parse_line_statement(AST_node_list *stmt_list)
     case TOKEN_RETURN:
         err = expect(TOKEN_RETURN);
         if (err != OK)
-            return err;
+            goto fail;
 
-        return parse_return_value();
+        err = parse_return_value(&expr_ast);
+        if (err != OK)
+            goto fail;
+
+        statement = AST_new_return(expr_ast, 0);
+        if (!AST_list_push(stmt_list, statement))
+        {
+            err = ERROR_INTERNAL;
+            goto fail;
+        }
+
+        return OK;
     case TOKEN_INT:
     case TOKEN_DOUBLE:
     case TOKEN_STRING:
@@ -597,7 +610,7 @@ static ErrorCode parse_return_type(Data_types *data_type)
     }
 }
 
-static ErrorCode parse_return_value(void)
+static ErrorCode parse_return_value(AST_node **out)
 {
     switch (current.type)
     {
@@ -608,8 +621,16 @@ static ErrorCode parse_return_value(void)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
-        AST_node *expr_ast = NULL;
-        return expr_parse(&current, &expr_ast);
+        AST_node *expr = NULL;
+        ErrorCode err = expr_parse(&current, &expr);
+        if (err != OK)
+        {
+            AST_free(expr);
+            return err;
+        }
+
+        *out = expr;
+        return OK;
     case TOKEN_SEMICOLON:
     case TOKEN_EOL:
         return OK;
