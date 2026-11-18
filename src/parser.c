@@ -21,7 +21,7 @@ static char *extract_string(void);
 static void free_token(void);
 static ErrorCode parse_annotation(bool *is_main);
 static ErrorCode parse_block(AST_node **out);
-static ErrorCode parse_block_body(AST_node **block_ast);
+static ErrorCode parse_block_body(AST_node_list *stmt_list);
 static ErrorCode parse_func(AST_node **func_ast);
 static ErrorCode parse_func_body(AST_node **out);
 static ErrorCode parse_id_tail(token_t id_token);
@@ -34,7 +34,7 @@ static ErrorCode parse_prologue(void);
 static ErrorCode parse_return_type(Data_types *data_type);
 static ErrorCode parse_return_value(void);
 static ErrorCode parse_statement(AST_node **out);
-static ErrorCode parse_statement_list(AST_node **block_ast);
+static ErrorCode parse_statement_list(AST_node_list *stmt_list);
 static ErrorCode parse_type(Data_types *data_type);
 static ErrorCode parse_var_type(Data_types *data_type);
 
@@ -145,7 +145,7 @@ static ErrorCode parse_block(AST_node **out)
         if (err != OK)
             goto fail;
 
-        err = parse_block_body(&block);
+        err = parse_block_body(&block->as.block.stmts);
         if (err != OK)
             goto fail;
 
@@ -163,9 +163,8 @@ static ErrorCode parse_block(AST_node **out)
     }
 }
 
-static ErrorCode parse_block_body(AST_node **block_ast)
+static ErrorCode parse_block_body(AST_node_list *stmt_list)
 {
-    (void)block_ast;
     switch (current.type)
     {
     case TOKEN_ID:
@@ -185,13 +184,13 @@ static ErrorCode parse_block_body(AST_node **block_ast)
         if (err != OK)
             goto fail;
 
-        if (!AST_list_push(&(*block_ast)->as.block.stmts, statement))
+        if (!AST_list_push(stmt_list, statement))
         {
             err = ERROR_INTERNAL;
             goto fail;
         }
 
-        err = parse_statement_list(block_ast);
+        err = parse_statement_list(stmt_list);
         if (err != OK)
             goto fail;
 
@@ -691,7 +690,7 @@ static ErrorCode parse_statement(AST_node **out)
     }
 }
 
-static ErrorCode parse_statement_list(AST_node **block_ast)
+static ErrorCode parse_statement_list(AST_node_list *stmt_list)
 {
     switch (current.type)
     {
@@ -712,13 +711,13 @@ static ErrorCode parse_statement_list(AST_node **block_ast)
         if (err != OK)
             goto fail;
 
-        if (!AST_list_push(&(*block_ast)->as.block.stmts, statement))
+        if (!AST_list_push(stmt_list, statement))
         {
             err = ERROR_INTERNAL;
             goto fail;
         }
 
-        err = parse_statement_list(block_ast);
+        err = parse_statement_list(stmt_list);
         if (err != OK)
             goto fail;
 
