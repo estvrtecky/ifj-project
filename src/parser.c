@@ -222,6 +222,7 @@ static ErrorCode parse_func(AST_node **out)
             goto fail;
 
         func_ast = AST_new_func_def(func_id, 0);
+        func_ast->as.func_def.is_main = is_main;
 
         err = expect(TOKEN_L_PAREN);
         if (err != OK)
