@@ -274,6 +274,9 @@ static ErrorCode parse_func_body(AST_node **out)
 {
     *out = NULL;
     ErrorCode err;
+    AST_node *expr = NULL;
+    AST_node *block = NULL;
+    AST_node *statement = NULL;
 
     switch (current.type)
     {
@@ -282,40 +285,52 @@ static ErrorCode parse_func_body(AST_node **out)
     case TOKEN_DOUBLE:
     case TOKEN_STRING:
     case TOKEN_L_PAREN:
-    case TOKEN_SUB:
     case TOKEN_ADD:
-        AST_node *expr_ast = NULL;
-        err = expr_parse(&current, &expr_ast);
+    case TOKEN_SUB:
+        err = expr_parse(&current, &expr);
         if (err != OK)
-            goto fail_expr;
+            goto fail;
 
         err = expect(TOKEN_EOL);
         if (err != OK)
-            goto fail_expr;
+            goto fail;
 
-        *out = expr_ast;
+        block = AST_new_block(0);
+        if (block == NULL)
+            goto fail;
+
+        statement = AST_new_expr_stmt(expr, 0);
+        if (statement == NULL)
+            goto fail;
+
+        if (!AST_list_push(&block->as.block.stmts, statement))
+        {
+            err = ERROR_INTERNAL;
+            goto fail;
+        }
+
+        *out = block;
         return OK;
-    fail_expr:
-        AST_free(expr_ast);
-        return err;
     case TOKEN_EOL:
-        AST_node *block_ast = NULL;
         err = expect(TOKEN_EOL);
         if (err != OK)
-            goto fail_block;
+            goto fail;
 
-        err = parse_block(&block_ast);
+        err = parse_block(&block);
         if (err != OK)
-            goto fail_block;
+            goto fail;
 
-        *out = block_ast;
+        *out = block;
         return OK;
-    fail_block:
-        AST_free(block_ast);
-        return err;
     default:
         return ERROR_SYNTAX;
     }
+
+fail:
+    AST_free(expr);
+    AST_free(block);
+    AST_free(statement);
+    return err;
 }
 
 static ErrorCode parse_id_tail(AST_node_list *stmt_list, token_t id_token)
