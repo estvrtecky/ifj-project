@@ -25,8 +25,8 @@ static ErrorCode parse_block_body(AST_node_list *stmt_list);
 static ErrorCode parse_func(AST_node **func_ast);
 static ErrorCode parse_func_body(AST_node **out);
 static ErrorCode parse_id_tail(token_t id_token);
-static ErrorCode parse_line_statement(void);
-static ErrorCode parse_line_statement_c(void);
+static ErrorCode parse_line_statement(AST_node_list *stmt_list);
+static ErrorCode parse_line_statement_c(AST_node_list *stmt_list);
 static ErrorCode parse_param(AST_node **func_ast);
 static ErrorCode parse_params(AST_node **func_ast);
 static ErrorCode parse_params_c(AST_node **func_ast);
@@ -346,50 +346,90 @@ static ErrorCode parse_id_tail(token_t id_token)
     }
 }
 
-static ErrorCode parse_line_statement(void)
+static ErrorCode parse_line_statement(AST_node_list *stmt_list)
 {
     ErrorCode err;
-    Data_types data_type;
+    char *id = NULL;
+    Data_types data_type = TYPE_UNKNOWN;
     AST_node *expr_ast = NULL;
+    AST_node *statement = NULL;
 
     switch (current.type)
     {
     case TOKEN_VAR:
         err = expect(TOKEN_VAR);
         if (err != OK)
-            return err;
+            goto fail;
 
+        if (current.type != TOKEN_ID)
+        {
+            err = ERROR_SYNTAX;
+            goto fail;
+        }
+
+        id = extract_string();
         err = expect(TOKEN_ID);
         if (err != OK)
-            return err;
+            goto fail;
 
         err = parse_var_type(&data_type);
         if (err != OK)
-            return err;
+            goto fail;
 
         err = expect(TOKEN_ASSIGN);
         if (err != OK)
-            return err;
+            goto fail;
 
-        return expr_parse(&current, &expr_ast);
+        err = expr_parse(&current, &expr_ast);
+        if (err != OK)
+            goto fail;
+
+        statement = AST_new_var_def(id, true, data_type, expr_ast, 0);
+        if (!AST_list_push(stmt_list, statement))
+        {
+            err = ERROR_INTERNAL;
+            goto fail;
+        }
+
+        free(id);
+        return OK;
     case TOKEN_VAL:
         err = expect(TOKEN_VAL);
         if (err != OK)
-            return err;
+            goto fail;
 
+        if (current.type != TOKEN_ID)
+        {
+            err = ERROR_SYNTAX;
+            goto fail;
+        }
+
+        id = extract_string();
         err = expect(TOKEN_ID);
         if (err != OK)
-            return err;
+            goto fail;
 
         err = parse_var_type(&data_type);
         if (err != OK)
-            return err;
+            goto fail;
 
         err = expect(TOKEN_ASSIGN);
         if (err != OK)
-            return err;
+            goto fail;
 
-        return expr_parse(&current, &expr_ast);
+        err = expr_parse(&current, &expr_ast);
+        if (err != OK)
+            goto fail;
+
+        statement = AST_new_var_def(id, false, data_type, expr_ast, 0);
+        if (!AST_list_push(stmt_list, statement))
+        {
+            err = ERROR_INTERNAL;
+            goto fail;
+        }
+
+        free(id);
+        return OK;
     case TOKEN_RETURN:
         err = expect(TOKEN_RETURN);
         if (err != OK)
@@ -416,9 +456,15 @@ static ErrorCode parse_line_statement(void)
     default:
         return ERROR_SYNTAX;
     }
+
+fail:
+    free(id);
+    AST_free(expr_ast);
+    AST_free(statement);
+    return err;
 }
 
-static ErrorCode parse_line_statement_c(void)
+static ErrorCode parse_line_statement_c(AST_node_list *stmt_list)
 {
     switch (current.type)
     {
@@ -427,11 +473,11 @@ static ErrorCode parse_line_statement_c(void)
         if (err != OK)
             return err;
 
-        err = parse_line_statement();
+        err = parse_line_statement(stmt_list);
         if (err != OK)
             return err;
 
-        return parse_line_statement_c();
+        return parse_line_statement_c(stmt_list);
     case TOKEN_EOL:
         return OK;
     default:
@@ -675,11 +721,11 @@ static ErrorCode parse_statement(AST_node_list *stmt_list)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
-        err = parse_line_statement();
+        err = parse_line_statement(stmt_list);
         if (err != OK)
             return err;
 
-        err = parse_line_statement_c();
+        err = parse_line_statement_c(stmt_list);
         if (err != OK)
             return err;
 
