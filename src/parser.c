@@ -336,6 +336,7 @@ static ErrorCode parse_id_tail(AST_node_list *stmt_list, token_t id_token)
     case TOKEN_LE:
     case TOKEN_GT:
     case TOKEN_GE:
+    case TOKEN_L_PAREN:
         err = expr_parse_after_id(&id_token, &current, &expr_ast);
         if (err != OK)
             goto fail;
