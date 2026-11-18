@@ -33,7 +33,7 @@ static ErrorCode parse_params_c(AST_node **func_ast);
 static ErrorCode parse_prologue(void);
 static ErrorCode parse_return_type(Data_types *data_type);
 static ErrorCode parse_return_value(void);
-static ErrorCode parse_statement(AST_node **out);
+static ErrorCode parse_statement(AST_node_list *stmt_list);
 static ErrorCode parse_statement_list(AST_node_list *stmt_list);
 static ErrorCode parse_type(Data_types *data_type);
 static ErrorCode parse_var_type(Data_types *data_type);
@@ -179,25 +179,11 @@ static ErrorCode parse_block_body(AST_node_list *stmt_list)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
-        AST_node *statement = NULL;
-        ErrorCode err = parse_statement(&statement);
+        ErrorCode err = parse_statement(stmt_list);
         if (err != OK)
-            goto fail;
+            return err;
 
-        if (!AST_list_push(stmt_list, statement))
-        {
-            err = ERROR_INTERNAL;
-            goto fail;
-        }
-
-        err = parse_statement_list(stmt_list);
-        if (err != OK)
-            goto fail;
-
-        return OK;
-    fail:
-        AST_free(statement);
-        return err;
+        return parse_statement_list(stmt_list);
     default:
         return ERROR_SYNTAX;
     }
@@ -585,7 +571,7 @@ static ErrorCode parse_return_value(void)
     }
 }
 
-static ErrorCode parse_statement(AST_node **out)
+static ErrorCode parse_statement(AST_node_list *stmt_list)
 {
     ErrorCode err;
     AST_node *expr_ast = NULL;
@@ -595,6 +581,7 @@ static ErrorCode parse_statement(AST_node **out)
     case TOKEN_IF:
         AST_node *if_block = NULL;
         AST_node *else_block = NULL;
+        AST_node *new_if = NULL;
         err = expect(TOKEN_IF);
         if (err != OK)
             goto fail_if;
@@ -627,15 +614,23 @@ static ErrorCode parse_statement(AST_node **out)
         if (err != OK)
             goto fail_if;
 
-        *out = AST_new_if(expr_ast, if_block, else_block, 0);
+        new_if = AST_new_if(expr_ast, if_block, else_block, 0);
+        if (!AST_list_push(stmt_list, new_if))
+        {
+            err = ERROR_INTERNAL;
+            goto fail_if;
+        }
+
         return OK;
     fail_if:
         AST_free(expr_ast);
         AST_free(if_block);
         AST_free(else_block);
+        AST_free(new_if);
         return err;
     case TOKEN_WHILE:
         AST_node *while_block = NULL;
+        AST_node *new_while = NULL;
         err = expect(TOKEN_WHILE);
         if (err != OK)
             goto fail_while;
@@ -656,11 +651,18 @@ static ErrorCode parse_statement(AST_node **out)
         if (err != OK)
             goto fail_while;
 
-        *out = AST_new_while(expr_ast, while_block, 0);
+        new_while = AST_new_while(expr_ast, while_block, 0);
+        if (!AST_list_push(stmt_list, new_while))
+        {
+            err = ERROR_INTERNAL;
+            goto fail_while;
+        }
+
         return OK;
     fail_while:
         AST_free(expr_ast);
         AST_free(while_block);
+        AST_free(new_while);
         return err;
     case TOKEN_ID:
     case TOKEN_RETURN:
@@ -706,25 +708,11 @@ static ErrorCode parse_statement_list(AST_node_list *stmt_list)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
-        AST_node *statement = NULL;
-        ErrorCode err = parse_statement(&statement);
+        ErrorCode err = parse_statement(stmt_list);
         if (err != OK)
-            goto fail;
+            return err;
 
-        if (!AST_list_push(stmt_list, statement))
-        {
-            err = ERROR_INTERNAL;
-            goto fail;
-        }
-
-        err = parse_statement_list(stmt_list);
-        if (err != OK)
-            goto fail;
-
-        return OK;
-    fail:
-        AST_free(statement);
-        return err;
+        return parse_statement_list(stmt_list);
     case TOKEN_DEDENT:
         return OK;
     default:
