@@ -7,8 +7,10 @@
    # Authors:    Damian Volosiny (xvolosd00)
    #             Adam Vallus     (xvallua00)
 */
+
+// Tests of functions in this file was executed by Claude Sonnet 5.5
+
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
 #include "symtable.h"
 #include "hashtable.h"
@@ -50,16 +52,16 @@ typedef struct
 } Builtin_func;
 
 static const Builtin_func builtin_func_array[] = {
-    {"print", 1, {TYPE_ANY}, TYPE_UNIT},
-    {"readLine", 0, {TYPE_UNKNOWN}, TYPE_STRING},
-    {"readInt", 0, {TYPE_UNKNOWN}, TYPE_INT},
-    {"readDouble", 0, {TYPE_UNKNOWN}, TYPE_DOUBLE},
-    {"toStr", 1, {TYPE_ANY}, TYPE_STRING},
-    {"toInt", 1, {TYPE_DOUBLE}, TYPE_INT},
-    {"strLength", 1, {TYPE_STRING}, TYPE_INT},
-    {"subStr", 3, {TYPE_STRING, TYPE_INT, TYPE_INT}, TYPE_STRING},
-    {"ord", 2, {TYPE_STRING, TYPE_INT}, TYPE_INT},
-    {"chr", 1, {TYPE_INT}, TYPE_STRING}};
+    {"print",       1, {TYPE_ANY},      TYPE_UNIT},
+    {"readLine",    0, {TYPE_UNKNOWN},  TYPE_STRING},
+    {"readInt",     0, {TYPE_UNKNOWN},  TYPE_INT},
+    {"readDouble",  0, {TYPE_UNKNOWN},  TYPE_DOUBLE},
+    {"toStr",       1, {TYPE_ANY},      TYPE_STRING},
+    {"toInt",       1, {TYPE_DOUBLE},   TYPE_INT},
+    {"strLength",   1, {TYPE_STRING},   TYPE_INT},
+    {"subStr",      3, {TYPE_STRING,    TYPE_INT, TYPE_INT}, TYPE_STRING},
+    {"ord",         2, {TYPE_STRING,    TYPE_INT}, TYPE_INT},
+    {"chr",         1, {TYPE_INT},      TYPE_STRING}};
 
 static void free_func_symbol(void *func_symbol)
 {
@@ -434,6 +436,8 @@ bool st_func_builtin(const Func_symbol *func_symbol)
     return func_symbol->builtin;
 }
 
+// This block was developed with help of Claude Sonet 5.5 when developing sema.c
+
 Sym_status st_detach_scopes(Symtable *symtable, Scope **output)
 {
     if(symtable == NULL)
@@ -462,3 +466,5 @@ Sym_status st_attach_scopes(Symtable *symtable, Scope *saved)
     symtable->top_scope = saved;
     return SYM_OK;
 }
+
+// End of block that was developed with help of Claude Sonet 5.5 

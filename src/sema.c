@@ -5,19 +5,12 @@
    # Authors:    Adam Vallus     (xvallua00)
 */
 
+// Tests of functions in this file was executed by Claude Sonnet 5.5
 
 #include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
 #include "sema.h"
 #include "symtable.h"
 #include "hashtable.h"
-
-#define ERR_RETURN_WITHOUT_TYPE 10
-#define ERR_RECURSION_NO_TYPE 10
-#define ERR_BAD_IF_AT_END 10
-
-
 
 typedef enum{
     FUNC_NOT_VISITED,
@@ -244,6 +237,8 @@ static void analyze_func(Sema_ctx *ctx, AST_node *f){
     info->state = FUNC_DONE;
 }
 
+// This block was co-developed with Claude Sonet 5.5 with promt: "Can you help me with this function not working properly" - Suggested functions st_attach_scopes & st_detach_scopes in symtable
+
 static void ensure_return_type(Sema_ctx *ctx, const char *name){
     void *found = NULL;
     if (ht_search(ctx->funcs, name, &found) != HT_OK){
@@ -255,7 +250,7 @@ static void ensure_return_type(Sema_ctx *ctx, const char *name){
         return;
     }
     if(info->state == FUNC_IN_PROGRESS){
-        set_error(ctx, ERR_RECURSION_NO_TYPE);
+        set_error(ctx, 10);
         return;
     }
 
@@ -270,6 +265,8 @@ static void ensure_return_type(Sema_ctx *ctx, const char *name){
         return;
     }
 }
+
+// End of block co-developed with Claude Sonet 5.5
 
 static void check_body_end(Sema_ctx *ctx, AST_node *fn){
     AST_func_def_data *f = &fn->as.func_def;
@@ -300,7 +297,7 @@ static void check_body_end(Sema_ctx *ctx, AST_node *fn){
             return;
         case AST_if:
             if (!ends_with_return(last)){
-                set_error(ctx, ERR_BAD_IF_AT_END);
+                set_error(ctx, 6);
             }
             return;
         case AST_var_def:
@@ -331,7 +328,7 @@ static void check_body_end(Sema_ctx *ctx, AST_node *fn){
             break;
         case AST_if:
             if (!result_is_unit(last)){
-                set_error(ctx, ERR_BAD_IF_AT_END);
+                set_error(ctx, 6);
                 return;
             }
             break;
@@ -445,7 +442,7 @@ static void visit_while(Sema_ctx *ctx, AST_node *while_stmt){
 static void visit_return(Sema_ctx *ctx, AST_node *return_stmt){
     AST_func_def_data *f = &ctx->func_node->as.func_def;
     if (!f->return_explicit){
-        set_error(ctx, ERR_RETURN_WITHOUT_TYPE);
+        set_error(ctx, 10);
         return;
     }
 
