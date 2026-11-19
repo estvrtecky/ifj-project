@@ -20,7 +20,7 @@
 static token_t current;
 
 static ErrorCode expect(token_type_t token_type);
-static char *extract_string(void);
+static char *extract_string(token_t *token);
 static void free_token(token_t *token);
 static ErrorCode parse_annotation(bool *is_main);
 static ErrorCode parse_block(AST_node **out);
@@ -61,16 +61,16 @@ static ErrorCode expect(token_type_t token_type)
 }
 
 /**
- * @brief Extracts the string from the current token and sets the current token's string attribute to NULL.
+ * @brief Extracts the string from the token and sets the token's string attribute to NULL.
  *
  * The caller is responsible for freeing the memory.
  *
  * @return Pointer to the extracted string.
  */
-static char *extract_string(void)
+static char *extract_string(token_t *token)
 {
-    char *s = current.attribute.s;
-    current.attribute.s = NULL;
+    char *s = token->attribute.s;
+    token->attribute.s = NULL;
     return s;
 }
 
@@ -107,7 +107,7 @@ static ErrorCode parse_annotation(bool *is_main)
             goto fail;
         }
 
-        id = extract_string();
+        id = extract_string(&current);
         err = expect(TOKEN_ID);
         if (err != OK)
             goto fail;
@@ -219,7 +219,7 @@ static ErrorCode parse_func(AST_node **out)
             goto fail;
         }
 
-        func_id = extract_string();
+        func_id = extract_string(&current);
         err = expect(TOKEN_ID);
         if (err != OK)
             goto fail;
@@ -416,7 +416,7 @@ static ErrorCode parse_line_statement(AST_node_list *stmt_list)
             goto fail;
         }
 
-        id = extract_string();
+        id = extract_string(&current);
         err = expect(TOKEN_ID);
         if (err != OK)
             goto fail;
@@ -453,7 +453,7 @@ static ErrorCode parse_line_statement(AST_node_list *stmt_list)
             goto fail;
         }
 
-        id = extract_string();
+        id = extract_string(&current);
         err = expect(TOKEN_ID);
         if (err != OK)
             goto fail;
@@ -574,7 +574,7 @@ static ErrorCode parse_param(AST_node **func_ast)
     switch (current.type)
     {
     case TOKEN_ID:
-        char *id = extract_string();
+        char *id = extract_string(&current);
         ErrorCode err = expect(TOKEN_ID);
         if (err != OK)
             goto fail;
