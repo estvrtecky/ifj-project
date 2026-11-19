@@ -908,13 +908,29 @@ static ErrorCode parse_var_type(Data_types *data_type)
     }
 }
 
+/**
+ * @brief Initializes the parser.
+ *
+ * Gets and sets the current token.
+ * Parser owns the token only when it is successful.
+ *
+ * @returns ErrorCode - OK, ERROR_LEX, ERROR_INTERNAL
+ */
 ErrorCode parser_init(void)
 {
     return get_next_token(&current);
 }
 
 /**
- * @brief program -> prologue { func_def } EOF
+ * @brief Parses the program.
+ *
+ * <program> -> <prologue> <functions> EOF
+ * Parser builds the AST of the program and stores it in the given pointer.
+ * If the parsing is successful, the AST is stored in the pointer.
+ * If the parsing fails, the pointer is set to NULL and the AST is freed.
+ *
+ * @param ast Pointer where the AST of the program will be stored.
+ * @returns ErrorCode - OK, ERROR_LEX, ERROR_SYNTAX, ERROR_INTERNAL
  */
 ErrorCode parse_program(AST_node **ast)
 {
