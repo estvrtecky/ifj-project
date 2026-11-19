@@ -256,7 +256,7 @@ static void translate_expresion(AST_node *expresion_node){
       fprintf(out_file, "NOTS\n");
     }
     else if(operation->op == OP_neg){
-      if(operation->data_type == TYPE_DOUBLE){
+      if(expresion_node->data_type == TYPE_DOUBLE){
         fprintf(out_file, "PUSHS float@0x0p+0\n");
       }
       else{
