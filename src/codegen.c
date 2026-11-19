@@ -167,7 +167,7 @@ static void translate_expresion(AST_node *expresion_node){
     return;
   }
   if(expresion_node->kind == AST_int_lit){
-    fprintf(out_file, "PUSHS int@%lld\n", (long long)expresion_node->as.int_lit.value);
+    fprintf(out_file, "PUSHS int@%ld\n", expresion_node->as.int_lit.value);
   }
   else if(expresion_node->kind == AST_bool_lit){
     if(expresion_node->as.bool_lit.value){
