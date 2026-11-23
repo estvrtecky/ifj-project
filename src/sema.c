@@ -698,6 +698,8 @@ static void visit_func(Sema_ctx *ctx, AST_node *f){
             set_error(ctx, sym_status_to_error(status));
             break;
         }
+        const Var_symbol *sym = st_lookup_var(ctx->st, p.name);
+        f->as.func_def.params[i].sym_id = (int) st_var_id(sym);
     }
     AST_node *previous = ctx->func_node;
     ctx->func_node = f;
