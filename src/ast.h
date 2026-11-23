@@ -37,10 +37,10 @@ typedef enum {
   AST_unop,
   AST_call,
   AST_conv_int_to_double,
+  AST_member,
   // Reserved for extensions, not produced yet
   AST_for,
   AST_if_expr,
-  AST_member,
 } AST_node_type;
 
 // Operators independent of token types
@@ -100,6 +100,8 @@ typedef struct {
   bool return_explicit;   // False if the type is not specified.
   bool is_main;           // is_main corresponds to the @main annotation
   AST_node *body;         // body is a BLOCK node
+  bool is_extension;
+  bool has_param_list;
 } AST_func_def_data;
 
 typedef struct {
@@ -171,6 +173,7 @@ typedef struct {
 typedef struct {
   char *name;
   AST_node_list args;
+  bool has_parens;
 } AST_call_data; // Function name and arguments in order from left to right.
                  // Without FUNEXP arguments are only literals or identifiers.
 
@@ -183,6 +186,13 @@ typedef struct {
 typedef struct {
   AST_node_list funcs;
 } AST_program_data; // Functions in the order they appear in the source code
+
+typedef struct {
+  AST_node *receiver;
+  char *name;
+  AST_node_list args;
+  bool has_parens;
+} AST_member_data;
 
 struct AST_node {
   AST_node_type kind; // Determines which member of the as is valid
@@ -214,6 +224,7 @@ struct AST_node {
     AST_unop_data unop;
     AST_call_data call;
     AST_conv_int_to_double_data conv;
+    AST_member_data member;
   } as; // Payload depends on the kind. AST_unit_lit has no payload;
 };
 
@@ -269,6 +280,14 @@ void AST_dump(
 // string must not be freed.
 const char *AST_kind_name(AST_node_type kind);
 const char *AST_op_name(AST_op_type op);
+
+// The caller adds args via AST_list_push (just as with AST_new_call)
+AST_node *AST_new_member(AST_node *receiver, const char *name, bool has_parens,
+                         size_t line);
+
+// returns a new string "Int$twice"; the caller must release it using free();
+// returns NULL on error
+char *AST_ext_name(Data_types type, const char *method);
 #ifdef __cplusplus
 }
 #endif
