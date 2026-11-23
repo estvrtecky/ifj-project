@@ -82,7 +82,7 @@ static bool is_expr_kind(AST_node_type type) {
   case AST_unop:
   case AST_call:
   case AST_conv_int_to_double:
-
+  case AST_member:
     return true;
 
   default:
@@ -200,6 +200,7 @@ AST_node *AST_new_call(const char *name, size_t line) {
     free(node);
     return NULL;
   }
+  node->as.call.has_parens = true;
   return node;
 }
 
@@ -316,6 +317,7 @@ AST_node *AST_new_func_def(const char *name, size_t line) {
     free(node);
     return NULL;
   }
+  node->as.func_def.has_param_list = true;
   node->as.func_def.return_type = TYPE_UNKNOWN;
   return node;
 }
@@ -437,13 +439,17 @@ void AST_free(AST_node *node) {
     free(node->as.call.name);
     free_list(&node->as.call.args);
     break;
+  case AST_member:
+    AST_free(node->as.member.receiver);
+    free(node->as.member.name);
+    free_list(&node->as.member.args);
+    break;
   case AST_int_lit:
   case AST_double_lit:
   case AST_bool_lit:
   case AST_unit_lit:
   case AST_for:
   case AST_if_expr:
-  case AST_member:
     break;
   default:
     break;
@@ -492,6 +498,8 @@ const char *AST_kind_name(AST_node_type kind) {
     return "CONV_INT_TO_DOUBLE";
   case AST_unit_lit:
     return "UNIT_LIT";
+  case AST_member:
+    return "MEMBER";
   default:
     return "?";
   }
@@ -631,6 +639,22 @@ static void dump_expr(const AST_node *node, FILE *out) {
     dump_expr(node->as.conv.operand, out);
     fputs(")", out);
     break;
+  case AST_member:
+    fputc('(', out);
+    dump_expr(node->as.member.receiver, out);
+    fputs(").", out);
+    fputs(node->as.member.name, out);
+    if (node->as.member.has_parens) {
+      fputc('(', out);
+      for (size_t i = 0; i < node->as.member.args.count; i++) {
+        if (i > 0) {
+          fputs(", ", out);
+        }
+        dump_expr(node->as.member.args.items[i], out);
+      }
+      fputc(')', out);
+    }
+    break;
   default:
     fputs("<not an expression>", out);
     break;
@@ -679,6 +703,10 @@ static void dump_node(const AST_node *node, FILE *out, int depth) {
     dump_params(node, out);
     fputs(": ", out);
     fputs(type_name(node->as.func_def.return_type), out);
+    if (node->as.func_def.is_extension == true) {
+      fputs(" [ext]", out);
+    }
+
     if (node->as.func_def.is_main) {
       fputs(" @main", out);
     }
@@ -747,4 +775,40 @@ void AST_dump(const AST_node *node, FILE *out) {
     return;
   }
   dump_node(node, out, 0);
+}
+
+// Creates a method call node; takes ownership of 'receiver'. Arguments are
+// added by the caller via AST_list_push.
+AST_node *AST_new_member(AST_node *receiver, const char *name, bool has_parens,
+                         size_t line) {
+  AST_node *node = AST_new(AST_member, line);
+  if (node == NULL) {
+    AST_free(receiver);
+    return NULL;
+  }
+  node->as.member.name = copy_string(name);
+  if (node->as.member.name == NULL) {
+    AST_free(receiver);
+    free(node);
+    return NULL;
+  }
+  node->as.member.receiver = receiver;
+  node->as.member.has_parens = has_parens;
+  return node;
+}
+
+// Returns a newly allocated mangled name, e.g. "Int$twice", or NULL. The caller
+// frees it.
+char *AST_ext_name(Data_types type, const char *method) {
+  const char *type_text = type_name(type);
+  if (type == TYPE_UNKNOWN || type == TYPE_ANY || method == NULL) {
+    return NULL;
+  }
+  size_t length = strlen(type_text) + 1 + strlen(method) + 1;
+  char *result = malloc(length);
+  if (result == NULL) {
+    return NULL;
+  }
+  snprintf(result, length, "%s$%s", type_text, method);
+  return result;
 }
