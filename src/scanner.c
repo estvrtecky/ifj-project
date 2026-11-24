@@ -71,6 +71,7 @@ static int pending_dedents = 0;
 static bool is_div = false;
 static int current_line = 1;
 static int multiline_comment_openings_counter = 0;
+static bool pending_dot = false;
 
 static const keyword_t keywords[] = {
     {"def", TOKEN_DEF},
@@ -272,6 +273,7 @@ void reset_scanner(void)
     is_div = false;
     current_line = 1;
     multiline_comment_openings_counter = 0;
+    pending_dot = false;
 }
 
 /**
@@ -280,6 +282,14 @@ void reset_scanner(void)
  */
 int get_next_token(token_t *token)
 {
+    if (pending_dot)
+    {
+        pending_dot = false;
+        token->line = current_line;
+        token->type = TOKEN_DOT;
+        return OK;
+    }
+
     bool is_multiline_comment = false;
     if (pending_dedents > 0)
     {
@@ -762,6 +772,17 @@ int get_next_token(token_t *token)
                     free(str);
                     return ERROR_INTERNAL;
                 }
+            }
+            else if (isalpha(c) || c == '_')
+            {
+                ungetc(c, stdin);
+                length--;
+                str[length] = '\0';
+                pending_dot = true;
+                token->type = TOKEN_INT;
+                token->attribute.i = (int)strtol(str, NULL, 10);
+                free(str);
+                return OK;
             }
             else
             {
