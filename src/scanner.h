@@ -27,8 +27,8 @@ typedef enum
     TOKEN_LIST,
     TOKEN_MATCH,
     TOKEN_TYPE,
-    TYPE_TRUE,
-    TYPE_FALSE,
+    TOKEN_TRUE,
+    TOKEN_FALSE,
 
     // Data types
     TOKEN_INT,
