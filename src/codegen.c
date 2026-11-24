@@ -201,7 +201,7 @@ static void translate_expresion(AST_node *expresion_node){
       fprintf(out_file, "JUMPIFEQS _L%d_or_true\n", id);
       translate_expresion(operation->right);
       fprintf(out_file, "JUMP _L%d_or_end\n", id);
-      fprintf(out_file, "LABEL _L%d_or_true\n", id);
+      fprintf(out_file, "LABEL _L%d_or_false\n", id);
       fprintf(out_file, "PUSHS bool@true\n");
       fprintf(out_file, "LABEL _L%d_or_end\n", id);
       return;
