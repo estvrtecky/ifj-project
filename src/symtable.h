@@ -9,6 +9,8 @@
 #ifndef SYMTABLE_H
 #define SYMTABLE_H
 
+#include <stddef.h>
+#include <stdbool.h>
 #include "types.h"
 
 #ifdef __cplusplus
