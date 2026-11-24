@@ -629,10 +629,14 @@ static ErrorCode parse_params_c(AST_node **func_ast)
         if (err != OK)
             return err;
 
+        if (current.first_on_new_line == true && current.type==TOKEN_R_PAREN){
+            return OK;
+        }
+        else{
         err = parse_param(func_ast);
         if (err != OK)
             return err;
-
+        }
         return parse_params_c(func_ast);
     case TOKEN_R_PAREN:
         return OK;
