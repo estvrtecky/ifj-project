@@ -282,6 +282,7 @@ void reset_scanner(void)
  */
 int get_next_token(token_t *token)
 {
+    token->first_on_new_line = false;
     if (pending_dot)
     {
         pending_dot = false;
@@ -511,6 +512,7 @@ int get_next_token(token_t *token)
             }
             else if (c == '\n')
             {
+                token->first_on_new_line = true;
                 if (!is_new_line && bracket_openings_counter == 0)
                 {
                     free(str);

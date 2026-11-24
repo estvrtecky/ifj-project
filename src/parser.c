@@ -530,7 +530,7 @@ static ErrorCode parse_line_statement(AST_node_list *stmt_list)
 
         return OK;
     case TOKEN_ID:
-        token_t id_token = {current.line, current.type, current.attribute};
+        token_t id_token = {current.line, current.type, current.first_on_new_line, current.attribute };
         current.attribute.s = NULL;
 
         err = expect(TOKEN_ID);
