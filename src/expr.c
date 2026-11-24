@@ -540,6 +540,67 @@ static ErrorCode reduce(Stack *s, size_t line)
   return OK;
 }
 
+// Parses call arguments up to and including the closing ')'.
+// On entry 'token' is the first token after '('.
+// On exit 'token' is the first token after ')'.
+// Arguments are appended to 'args'. On error the caller frees the node that owns 'args'.
+static ErrorCode parse_args(token_t *token, AST_node_list *args)
+{
+  if (token->type == TOKEN_R_PAREN)
+  {
+    ErrorCode err = (ErrorCode)get_next_token(token);
+    if (err != OK)
+    {
+      return err;
+    }
+    return OK;
+  }
+
+  while (true)
+  {
+    AST_node *arg = NULL;
+    ErrorCode err = expr_parse(token, &arg);
+    if (err != OK)
+    {
+      return err;
+    }
+    if (!AST_list_push(args, arg))
+    {
+      AST_free(arg);
+      return ERROR_INTERNAL;
+    }
+    if (token->type == TOKEN_COMMA)
+    {
+      err = (ErrorCode)get_next_token(token);
+      if (err != OK)
+      {
+        return err;
+      }
+      if (token->type == TOKEN_R_PAREN)
+      {
+        err = (ErrorCode)get_next_token(token);
+        if (err != OK)
+        {
+          return err;
+        }
+        break;
+      }
+      continue;
+    }
+    if (token->type == TOKEN_R_PAREN)
+    {
+      err = (ErrorCode)get_next_token(token);
+      if (err != OK)
+      {
+        return err;
+      }
+      break;
+    }
+    return ERROR_SYNTAX;
+  }
+  return OK;
+}
+
 static ErrorCode parse_call(token_t *id_token, token_t *token, AST_node **out)
 {
   *out = NULL;
@@ -559,65 +620,13 @@ static ErrorCode parse_call(token_t *id_token, token_t *token, AST_node **out)
     return err;
   }
 
-  if (token->type == TOKEN_R_PAREN)
+  err = parse_args(token, &call->as.call.args);
+  if (err != OK)
   {
-    err = (ErrorCode)get_next_token(token);
-    if (err != OK)
-    {
-      AST_free(call);
-      return err;
-    }
-    *out = call;
-    return OK;
-  }
-  while (true)
-  {
-    AST_node *arg = NULL;
-    err = expr_parse(token, &arg);
-    if (err != OK)
-    {
-      AST_free(call);
-      return err;
-    }
-    if (!AST_list_push(&call->as.call.args, arg))
-    {
-      AST_free(arg);
-      AST_free(call);
-      return ERROR_INTERNAL;
-    }
-    if (token->type == TOKEN_COMMA)
-    {
-      err = (ErrorCode)get_next_token(token);
-      if (err != OK)
-      {
-        AST_free(call);
-        return err;
-      }
-      if (token->type == TOKEN_R_PAREN)
-      {
-        err = (ErrorCode)get_next_token(token);
-        if (err != OK)
-        {
-          AST_free(call);
-          return err;
-        }
-        break;
-      }
-      continue;
-    }
-    if (token->type == TOKEN_R_PAREN)
-    {
-      err = (ErrorCode)get_next_token(token);
-      if (err != OK)
-      {
-        AST_free(call);
-        return err;
-      }
-      break;
-    }
     AST_free(call);
-    return ERROR_SYNTAX;
+    return err;
   }
+
   *out = call;
   return OK;
 }
