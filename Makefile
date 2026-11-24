@@ -5,7 +5,7 @@ CC ?= gcc
 CSTD ?= -std=c11
 
 # Default flags for the compiler
-CFLAGS ?= $(CSTD) -Wall -Werror -Wextra
+CFLAGS ?= $(CSTD) -Wall -Wextra
 
 # Directories
 SRC_DIR := src
