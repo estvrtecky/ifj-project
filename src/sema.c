@@ -37,7 +37,9 @@ static Data_types visit_expr(Sema_ctx *ctx, AST_node *exprt);
 static Data_types visit_call(Sema_ctx *ctx, AST_node *call);
 static Data_types visit_binop(Sema_ctx *ctx, AST_node *binop);
 static Data_types visit_unop(Sema_ctx *ctx, AST_node *unop);
+static Data_types visit_member(Sema_ctx *ctx, AST_node *f);
 static void visit_func(Sema_ctx *ctx, AST_node *f);
+static Data_types tail_type(Sema_ctx *ctx, AST_node *stmt, Data_types target);
 
 
 static void set_error(Sema_ctx *ctx, int err_code){
@@ -176,48 +178,39 @@ static AST_node *last_stmt(AST_node *block){
     return list->items[list->count - 1];
 }
 
-static bool ends_with_return(AST_node *stmt){
+static Data_types tail_type(Sema_ctx *ctx, AST_node *stmt, Data_types target){
     if(stmt == NULL){
-        return false;
+        return TYPE_UNIT;
     }
-    if(stmt->kind == AST_return){
-        return true;
-    }
-    if(stmt->kind == AST_if){
-        AST_if_data *s = &stmt->as.if_stmt;
-        if(s->else_block == NULL){
-            return false;
+    switch (stmt->kind){
+    case AST_return:
+        return target;
+    case AST_expr_stmt:
+        if(target != TYPE_UNKNOWN){
+            coerce(ctx, target, &stmt->as.expr_stmt.expr, 6);
         }
-        return ends_with_return(last_stmt(s->then_block)) && ends_with_return(last_stmt(s->else_block));
-    }
-    return false;
-}
-
-static bool result_is_unit(AST_node *stmt){
-    if(stmt == NULL){
-        return true;
-    }
-    switch (stmt->kind)
-    {
+        stmt->as.expr_stmt.expr->is_result = true;
+        return stmt->as.expr_stmt.expr->data_type;
+    case AST_if:
+        if(stmt->as.if_stmt.else_block == NULL){
+            return TYPE_UNIT;
+        }
+        Data_types t_then = tail_type(ctx, last_stmt(stmt->as.if_stmt.then_block), target);
+        Data_types t_else = tail_type(ctx, last_stmt(stmt->as.if_stmt.else_block), target);
+        if(failed(ctx)){
+            return TYPE_UNKNOWN;
+        }
+        if(t_then != t_else){
+            return TYPE_UNKNOWN;
+        }
+        return t_then;
     case AST_var_def:
     case AST_assign:
     case AST_while:
-        return true;
-    case AST_expr_stmt:
-        return stmt->as.expr_stmt.expr->data_type == TYPE_UNIT;
-    case AST_if:
-        {
-            AST_if_data *s = &stmt->as.if_stmt;
-            if( !result_is_unit(last_stmt(s->then_block))){
-                return false;
-            }
-            if( s->else_block == NULL){
-                return true;
-            }
-            return result_is_unit(last_stmt(s->else_block));
-        }
+        return TYPE_UNIT;
     default:
-        return false;
+        set_error(ctx, 99);
+        return TYPE_UNKNOWN;
     }
 }
 
@@ -270,79 +263,27 @@ static void ensure_return_type(Sema_ctx *ctx, const char *name){
 
 static void check_body_end(Sema_ctx *ctx, AST_node *fn){
     AST_func_def_data *f = &fn->as.func_def;
-    AST_node *last = last_stmt(f->body);
 
     if (f->return_explicit && f->return_type == TYPE_UNIT){
         return;
     }
-    if (f->return_explicit){
-        if (last == NULL){
+    Data_types target = (f->return_explicit)? f->return_type : TYPE_UNKNOWN;
+    Data_types t = tail_type(ctx, last_stmt(f->body), target);
+    if(failed(ctx)){
+        return;
+    }
+    if(f->return_explicit){
+        if(t != f->return_type){
             set_error(ctx, 6);
             return;
         }
-        switch (last->kind)
-        {
-        case AST_return:
-            return;
-        case AST_expr_stmt:
-            if (last->as.expr_stmt.expr->data_type == TYPE_BOOLEAN){
-                set_error(ctx, 6);
-                return;
-            }
-            coerce(ctx, f->return_type, &last->as.expr_stmt.expr, 6);
-            if (failed(ctx)){
-                return;
-            }
-            last->as.expr_stmt.expr->is_result = true;
-            return;
-        case AST_if:
-            if (!ends_with_return(last)){
-                set_error(ctx, 6);
-            }
-            return;
-        case AST_var_def:
-        case AST_assign:
-        case AST_while:
-            set_error(ctx, 6);
-            return;
-        default:
-            set_error(ctx, 99);
-            return;
-        }
     }
-    Data_types inferred = TYPE_UNIT;
-    if (last != NULL){
-        switch (last->kind)
-        {
-        case AST_expr_stmt:
-            inferred = last->as.expr_stmt.expr->data_type;
-            if (inferred == TYPE_BOOLEAN){
-                set_error(ctx, 6);
-                return;
-            }
-            if (inferred == TYPE_UNKNOWN){
-                set_error(ctx, 6);
-                return;
-            }
-            last->as.expr_stmt.expr->is_result = true;
-            break;
-        case AST_if:
-            if (!result_is_unit(last)){
-                set_error(ctx, 6);
-                return;
-            }
-            break;
-        case AST_var_def:
-        case AST_assign:
-        case AST_while:
-            break;
-        default:
-            set_error(ctx, 99);
-            return;
-        }
+    if(t == TYPE_UNKNOWN){
+        set_error(ctx, 6);
+        return;
     }
-    f->return_type = inferred;
-    Sym_status status = st_set_return_type(ctx->st, f->name, inferred);
+    f->return_type = t;
+    Sym_status status = st_set_return_type(ctx->st, f->name, f->return_type);
     if (status != SYM_OK){
         set_error(ctx, 99);
     }
@@ -355,10 +296,7 @@ static void visit_var_def(Sema_ctx *ctx, AST_node *var_def){
         return;
     }
     Data_types var_type = init_type;
-    if (init_type == TYPE_BOOLEAN){
-        set_error(ctx, 6);
-        return;
-    }
+
     if (data->decl_type != TYPE_UNKNOWN){
         coerce(ctx, data->decl_type, &data->init, 6);
         if(failed(ctx)){
@@ -392,14 +330,11 @@ static void visit_assign(Sema_ctx *ctx, AST_node *assign){
         set_error(ctx, 7);
         return;
     }
-    Data_types value_type = visit_expr(ctx, asgn->value);
+    visit_expr(ctx, asgn->value);
     if (failed(ctx)){
         return;
     }
-    if (value_type == TYPE_BOOLEAN){
-        set_error(ctx, 6);
-        return;
-    }
+
     coerce(ctx, st_var_type(sym), &asgn->value, 6);
     if(failed(ctx)){
         return;
@@ -454,13 +389,8 @@ static void visit_return(Sema_ctx *ctx, AST_node *return_stmt){
         return;
     }
 
-    Data_types value_type = visit_expr(ctx, value);
+    visit_expr(ctx, value);
     if (failed(ctx)){
-        return;
-    }
-
-    if (value_type == TYPE_BOOLEAN){
-        set_error(ctx, 6);
         return;
     }
 
@@ -535,6 +465,11 @@ static Data_types visit_expr(Sema_ctx *ctx, AST_node *expr){
     case AST_call:
         expr->data_type = visit_call(ctx, expr);
         break;
+    case AST_member:
+        expr->data_type = visit_member(ctx, expr);
+        break;
+    case AST_conv_int_to_double:
+        break;
     default:
         set_error(ctx, 99);
         return TYPE_UNKNOWN;
@@ -551,69 +486,69 @@ static Data_types visit_binop(Sema_ctx *ctx, AST_node *binop){
     if (failed(ctx)){
         return TYPE_UNKNOWN;
     }
-    if (l == TYPE_BOOLEAN || r == TYPE_BOOLEAN){
+    if (binop->as.binop.op ==  OP_add || binop->as.binop.op ==  OP_sub || binop->as.binop.op ==  OP_mul || binop->as.binop.op ==  OP_div){
+        if( binop->as.binop.op == OP_add &&
+            l == TYPE_STRING &&
+            r == TYPE_STRING){
+                return TYPE_STRING;
+        }
+        if (is_numeric(l) && is_numeric(r) ){
+            if(l != r){
+                unify_numeric(ctx, binop);
+                if(failed(ctx)){
+                    return TYPE_UNKNOWN;
+                }
+                return TYPE_DOUBLE;
+            }
+            else {
+                return l;
+            }
+        }
         set_error(ctx, 6);
         return TYPE_UNKNOWN;
     }
-    if (binop->as.binop.op ==  OP_add ||
-        binop->as.binop.op ==  OP_sub ||
-        binop->as.binop.op ==  OP_mul ||
-        binop->as.binop.op ==  OP_div){
-            if( binop->as.binop.op == OP_add &&
-                l == TYPE_STRING &&
-                r == TYPE_STRING){
-                    return TYPE_STRING;
-            }
-            if (is_numeric(l) && is_numeric(r) ){
-                if(l != r){
-                    unify_numeric(ctx, binop);
-                    if(failed(ctx)){
-                        return TYPE_UNKNOWN;
-                    }
-                    return TYPE_DOUBLE;
-                }
-                else {
-                    return l;
+    if (binop->as.binop.op == OP_lt || binop->as.binop.op == OP_le || binop->as.binop.op == OP_gt || binop->as.binop.op == OP_ge){
+        if(is_numeric(l) && is_numeric(r)){
+            if( l != r){
+                unify_numeric(ctx, binop);
+                if(failed(ctx)){
+                    return TYPE_UNKNOWN;
                 }
             }
-            set_error(ctx, 6);
-            return TYPE_UNKNOWN;
-    }
-    if (binop->as.binop.op == OP_lt ||
-        binop->as.binop.op == OP_le ||
-        binop->as.binop.op == OP_gt ||
-        binop->as.binop.op == OP_ge){
-            if(is_numeric(l) && is_numeric(r)){
-                if( l != r){
-                    unify_numeric(ctx, binop);
-                    if(failed(ctx)){
-                        return TYPE_UNKNOWN;
-                    }
-                }
-                return TYPE_BOOLEAN;
-            }
-            if(l == TYPE_STRING && r == TYPE_STRING){
-                return TYPE_BOOLEAN;
-            }
-            set_error(ctx, 6);
-            return TYPE_UNKNOWN;
+            return TYPE_BOOLEAN;
+        }
+        if(l == TYPE_STRING && r == TYPE_STRING){
+            return TYPE_BOOLEAN;
+        }
+        set_error(ctx, 6);
+        return TYPE_UNKNOWN;
     }
     
-    if (binop->as.binop.op == OP_eq ||
-        binop->as.binop.op == OP_ne ){
-            if(is_numeric(l) && is_numeric(r)){
-                if(l != r){
-                    unify_numeric(ctx, binop);
-                    if(failed(ctx)){
-                        return TYPE_UNKNOWN;
-                    }
+    if (binop->as.binop.op == OP_eq || binop->as.binop.op == OP_ne ){
+        if(is_numeric(l) && is_numeric(r)){
+            if(l != r){
+                unify_numeric(ctx, binop);
+                if(failed(ctx)){
+                    return TYPE_UNKNOWN;
                 }
-                return TYPE_BOOLEAN;
             }
-            if(l == r){
-                return TYPE_BOOLEAN;
-            }
+            return TYPE_BOOLEAN;
+        }
+        if(l == r){
+            return TYPE_BOOLEAN;
+        }
+        set_error(ctx, 6);
+        return TYPE_UNKNOWN;       
     }
+
+    if (binop->as.binop.op == OP_and || binop->as.binop.op == OP_or){
+        if(l == TYPE_BOOLEAN && r == TYPE_BOOLEAN){
+            return TYPE_BOOLEAN;
+        }
+        set_error(ctx, 6);
+        return TYPE_UNKNOWN;       
+    }
+
     set_error(ctx, 6);
     return TYPE_UNKNOWN;
 }
@@ -631,7 +566,10 @@ static Data_types visit_unop(Sema_ctx *ctx, AST_node *unop){
         return TYPE_UNKNOWN;
     }
     if (unop->as.unop.op == OP_not){
-        set_error(ctx, 99);
+        if( operand == TYPE_BOOLEAN){
+            return TYPE_BOOLEAN;
+        }
+        set_error(ctx, 6);
         return TYPE_UNKNOWN;
     }
     set_error(ctx, 99);
@@ -653,10 +591,6 @@ static Data_types visit_call(Sema_ctx *ctx, AST_node *call){
         if(failed(ctx)){
             return TYPE_UNKNOWN;
         }
-        if(call->as.call.args.items[i]->data_type == TYPE_BOOLEAN){
-            set_error(ctx, 5);
-            return TYPE_UNKNOWN;
-        }
         coerce(ctx, st_func_param_type(f, i), &call->as.call.args.items[i], 5);
         if(failed(ctx)){
             return TYPE_UNKNOWN;
@@ -670,6 +604,51 @@ static Data_types visit_call(Sema_ctx *ctx, AST_node *call){
     }
     return st_func_return_type(f);
     
+}
+
+static Data_types visit_member(Sema_ctx *ctx, AST_node *expr){
+    Data_types recv_type = visit_expr(ctx, expr->as.member.receiver);
+    if(failed(ctx)){
+        return TYPE_UNKNOWN;
+    }
+    char *mangled = AST_ext_name(recv_type, expr->as.member.name);
+    if(mangled == NULL){
+        set_error(ctx, 3);
+        return TYPE_UNKNOWN;
+    }
+    void *output = NULL;
+    ht_search(ctx->funcs, mangled, &output);
+    Func_info *info = output;
+    if (info == NULL){
+        free(mangled);
+        set_error(ctx, 3);
+        return TYPE_UNKNOWN;
+    }
+    if (expr->as.member.has_parens != info->node->as.func_def.has_param_list){
+        free(mangled);
+        set_error(ctx, 5);
+        return TYPE_UNKNOWN;
+    }
+    AST_node *receiver = expr->as.member.receiver;
+    AST_node_list old_args = expr->as.member.args;
+    free(expr->as.member.name);
+    expr->kind = AST_call;
+    expr->as.call.name = mangled;
+    AST_node_list new_clear_list = {.capacity = 0, .count = 0, .items = NULL};
+    expr->as.call.args = new_clear_list;
+    if(AST_list_push(&(expr->as.call.args), receiver) == false){
+        set_error(ctx, 99);
+        return TYPE_UNKNOWN;
+    }
+    for (size_t i = 0; i < old_args.count; i++){
+        if(AST_list_push(&(expr->as.call.args), old_args.items[i]) == false){
+            set_error(ctx, 99);
+            return TYPE_UNKNOWN;
+        }
+    }
+    free(old_args.items);
+    expr->as.call.has_parens = true;
+    return visit_call(ctx, expr);
 }
 
 static void visit_block(Sema_ctx *ctx, AST_node *block){
@@ -698,6 +677,8 @@ static void visit_func(Sema_ctx *ctx, AST_node *f){
             set_error(ctx, sym_status_to_error(status));
             break;
         }
+        const Var_symbol *sym = st_lookup_var(ctx->st, p.name);
+        f->as.func_def.params[i].sym_id = (int) st_var_id(sym);
     }
     AST_node *previous = ctx->func_node;
     ctx->func_node = f;

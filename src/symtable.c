@@ -61,7 +61,9 @@ static const Builtin_func builtin_func_array[] = {
     {"strLength",   1, {TYPE_STRING},   TYPE_INT},
     {"subStr",      3, {TYPE_STRING,    TYPE_INT, TYPE_INT}, TYPE_STRING},
     {"ord",         2, {TYPE_STRING,    TYPE_INT}, TYPE_INT},
-    {"chr",         1, {TYPE_INT},      TYPE_STRING}};
+    {"chr",         1, {TYPE_INT},      TYPE_STRING},
+    {"readBoolean", 0, {TYPE_UNKNOWN},  TYPE_BOOLEAN}
+};
 
 static void free_func_symbol(void *func_symbol)
 {
