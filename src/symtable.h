@@ -9,7 +9,10 @@
 #ifndef SYMTABLE_H
 #define SYMTABLE_H
 
+#include <stddef.h>
+#include <stdbool.h>
 #include "types.h"
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C"

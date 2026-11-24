@@ -1,5 +1,6 @@
 #ifndef SCANNER_H
 #define SCANNER_H
+#include <stdbool.h>
 
 typedef enum
 {
@@ -77,6 +78,7 @@ typedef struct
 {
     int line;
     token_type_t type;
+    bool first_on_new_line;
     union
     {
         char *s;
