@@ -41,6 +41,8 @@ static ErrorCode parse_statement(AST_node_list *stmt_list);
 static ErrorCode parse_statement_list(AST_node_list *stmt_list);
 static ErrorCode parse_type(Data_types *data_type);
 static ErrorCode parse_var_type(Data_types *data_type);
+static ErrorCode parse_func_rest(AST_node *func);
+static ErrorCode parse_method(Data_types receiver_type, const char *receiver_name, AST_node **out);
 
 /**
  * @brief Expects the current token to be the given token type.
@@ -210,7 +212,6 @@ static ErrorCode parse_func(AST_node **out)
         bool is_main = false;
         char *func_id = NULL;
         AST_node *func_ast = NULL;
-        AST_node *func_body = NULL;
 
         err = parse_annotation(&is_main);
         if (err != OK)
@@ -246,22 +247,11 @@ static ErrorCode parse_func(AST_node **out)
         if (err != OK)
             goto fail;
 
-        Data_types data_type = TYPE_UNKNOWN;
-        err = parse_return_type(&data_type);
+        err = parse_func_rest(func_ast);
         if (err != OK)
+        {
             goto fail;
-        func_ast->as.func_def.return_type = data_type;
-        if (data_type != TYPE_UNKNOWN)
-            func_ast->as.func_def.return_explicit = true;
-
-        err = expect(TOKEN_ASSIGN);
-        if (err != OK)
-            goto fail;
-
-        err = parse_func_body(&func_body);
-        if (err != OK)
-            goto fail;
-        func_ast->as.func_def.body = func_body;
+        }
 
         *out = func_ast;
         free(func_id);
@@ -270,7 +260,6 @@ static ErrorCode parse_func(AST_node **out)
     fail:
         free(func_id);
         AST_free(func_ast);
-        AST_free(func_body);
         return err;
     default:
         return ERROR_SYNTAX;
@@ -1021,5 +1010,228 @@ ErrorCode parse_program(AST_node **ast)
 fail:
     free_token(&current);
     AST_free(program);
+    return err;
+}
+
+/**
+ * @brief Parses the rest of a function definition: optional return type, '=' and body.
+ * Shared by parse_func and parse_method. On error the caller frees 'func'.
+ */
+static ErrorCode parse_func_rest(AST_node *func)
+{
+    Data_types data_type = TYPE_UNKNOWN;
+    ErrorCode err = parse_return_type(&data_type);
+    if (err != OK)
+    {
+        return err;
+    }
+
+    func->as.func_def.return_type = data_type;
+    if (data_type != TYPE_UNKNOWN)
+    {
+        func->as.func_def.return_explicit = true;
+    }
+    err = expect(TOKEN_ASSIGN);
+    if (err != OK)
+    {
+        return err;
+    }
+
+    AST_node *body = NULL;
+    err = parse_func_body(&body);
+    if (err != OK)
+    {
+        return err;
+    }
+    func->as.func_def.body = body;
+    return OK;
+}
+
+/**
+ * @brief Parses one method of an extension block.
+ * The method becomes a function named "Type$name" with the receiver as params[0].
+ */
+static ErrorCode parse_method(Data_types receiver_type, const char *receiver_name, AST_node **out)
+{
+    ErrorCode err;
+    char *method_name = NULL;
+    char *full_name = NULL;
+    AST_node *func = NULL;
+
+    err = expect(TOKEN_DEF);
+    if (err != OK)
+    {
+        goto fail;
+    }
+    if (current.type != TOKEN_ID)
+    {
+        err = ERROR_SYNTAX;
+        goto fail;
+    }
+    method_name = extract_string(&current);
+    err = expect(TOKEN_ID);
+    if (err != OK)
+    {
+        goto fail;
+    }
+
+    full_name = AST_ext_name(receiver_type, method_name); // "Int$twice"
+    if (full_name == NULL)
+    {
+        err = ERROR_INTERNAL;
+        goto fail;
+    }
+
+    func = AST_new_func_def(full_name, 0);
+    if (func == NULL)
+    {
+        err = ERROR_INTERNAL;
+        goto fail;
+    }
+    func->as.func_def.is_extension = true;
+
+    if (!AST_func_add_param(func, receiver_name, receiver_type))
+    {
+        err = ERROR_INTERNAL;
+        goto fail;
+    }
+
+    if (current.type == TOKEN_L_PAREN)
+    {
+        err = expect(TOKEN_L_PAREN);
+        if (err != OK)
+        {
+            goto fail;
+        }
+        err = parse_params(&func);
+        if (err != OK)
+        {
+            goto fail;
+        }
+        err = expect(TOKEN_R_PAREN);
+        if (err != OK)
+        {
+            goto fail;
+        }
+    }
+    else
+    {
+        func->as.func_def.has_param_list = false;
+    }
+    err = parse_func_rest(func);
+    if (err != OK)
+    {
+        goto fail;
+    }
+
+    free(method_name);
+    free(full_name);
+    *out = func;
+    return OK;
+
+fail:
+    free(method_name);
+    free(full_name);
+    AST_free(func);
+    return err;
+}
+
+static ErrorCode parse_extension(AST_node_list *funcs)
+{
+    ErrorCode err;
+    char *receiver_name = NULL;
+    Data_types receiver_type = TYPE_UNKNOWN;
+    AST_node *method;
+
+    err = expect(TOKEN_EXTENSION);
+    if (err != OK)
+    {
+        goto fail;
+    }
+    err = expect(TOKEN_L_PAREN);
+    if (err != OK)
+    {
+        goto fail;
+    }
+    if (current.type != TOKEN_ID)
+    {
+        err = ERROR_SYNTAX;
+        goto fail;
+    }
+
+    err = expect(TOKEN_ID);
+    if (err != OK)
+    {
+        goto fail;
+    }
+    err = expect(TOKEN_COLON);
+    if (err != OK)
+    {
+        goto fail;
+    }
+    err = parse_type(&receiver_type);
+    if (err != OK)
+    {
+        goto fail;
+    }
+    err = expect(TOKEN_R_PAREN);
+    if (err != OK)
+    {
+        goto fail;
+    }
+
+    if (current.type == TOKEN_DEF)
+    {
+        err = parse_method(receiver_type, receiver_name, &method);
+        if (err != OK)
+        {
+            goto fail;
+        }
+        if (!AST_list_push(funcs, method))
+        {
+            err = ERROR_INTERNAL;
+            goto fail;
+        }
+        method = NULL;
+    }
+    else
+    {
+        err = expect(TOKEN_EOL);
+        if (err != OK)
+        {
+            goto fail;
+        }
+        err = expect(TOKEN_INDENT);
+        if (err != OK)
+        {
+            goto fail;
+        }
+        do
+        {
+            err = parse_method;
+            if (err != OK)
+            {
+                goto fail;
+            }
+            if (!AST_list_push(funcs, method))
+            {
+                err = ERROR_INTERNAL;
+                goto fail;
+            }
+            method = NULL;
+        } while (current.type != TOKEN_DEDENT);
+
+        err = expect(TOKEN_DEDENT);
+        if (err != OK)
+        {
+            goto fail;
+        }
+    }
+    free(receiver_name);
+    return OK;
+
+fail:
+    free(receiver_name);
+    AST_free(method);
     return err;
 }
