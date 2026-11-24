@@ -128,7 +128,8 @@ static int append_char(char **str, size_t *length, size_t *capacity, char c)
 }
 
 /* Tento usek kodu(funckia finalize string) bola vygenerovana AI(Claude Sonnet 5.5) dna 12.11.2026
-pisem scanner a teraz sa objavila tato vytka od kapitana potom co nechal cely nas repozitar prejst ai. "Reťazcový token obsahuje úvodzovky a nedekódované escape sekvencie ("neg\n" vrátane " a \+n). Má vrátiť obsah bez úvodzoviek s dekódovanými escapes, pri """ obsah doslovne bez trojitých úvodzoviek". tu je nas kod co aktualne je na githube a patri scanneru. Napis mi funckiu ktora ocisti string od ""*/
+pisem scanner a teraz sa objavila tato vytka od kapitana potom co nechal cely nas repozitar prejst ai. "Reťazcový token obsahuje úvodzovky a nedekódované escape sekvencie ("neg\n" vrátane " a \+n). Má vrátiť obsah bez úvodzoviek s dekódovanými escapes, pri """ obsah doslovne bez trojitých úvodzoviek". tu je nas kod co aktualne je na githube a patri scanneru. Napis mi funckiu ktora ocisti string od ""*
+!!! Funkcia bola dna 24.11. manualne upravena Andreou Valekovou, miesto upravi je oznacene "*"/
 /**
  * @brief Vytvorí dekódovaný obsah reťazca (bez úvodzoviek, s dekódovanými escapes)
  * @param raw surový text tokenu vrátane úvodzoviek
@@ -158,7 +159,7 @@ static char *finalize_string(char *raw)
         // Bežný: preskoč úvodné a koncové " a dekóduj escapes
         for (size_t i = 1; i + 1 < len; i++)
         {
-            if (raw[i] == '\\' && i + 2 < len + 0)
+            if (raw[i] == '\\' && i + 2 < len) // povodne od AI if (raw[i] == '\\' && i + 2 < len + 0)
             {
                 i++;
                 switch (raw[i])
@@ -1137,18 +1138,35 @@ int get_next_token(token_t *token)
             }
             else if (c == '"')
             {
-                if (append_char(&str, &length, &capacity, (char)c) != OK)
-                {
-                    free(str);
-                    return ERROR_INTERNAL;
+                int next_char = getchar();
+                if(next_char== '"'){
+                    state=STATE_Q9;
+                    append_char(&str, &length, &capacity, (char)c);
+                    if(next_char != EOF){
+                        ungetc(next_char, stdin);
+                    }
                 }
-                token->type = TOKEN_STRING;
-                token->attribute.s = finalize_string(str);
-                if (token->attribute.s == NULL)
-                {
-                    return ERROR_INTERNAL;
+                else{
+                    if(next_char != EOF){
+                        ungetc(next_char, stdin);
+                    }
+                    
+                    if (append_char(&str, &length, &capacity, (char)c) != OK)
+                    {
+                        free(str);
+                        return ERROR_INTERNAL;
+                    }
+                    token->type = TOKEN_STRING;
+                    token->attribute.s = finalize_string(str);
+                    if (token->attribute.s == NULL)
+                    {
+                        return ERROR_INTERNAL;
+                    }
+                    return OK;
+
                 }
-                return OK;
+                
+                
             }
             else
             {
