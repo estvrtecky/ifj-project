@@ -95,6 +95,8 @@ static const keyword_t keywords[] = {
     {"List", TOKEN_LIST},
     {"match", TOKEN_MATCH},
     {"type", TOKEN_TYPE},
+    {"true", TOKEN_TRUE},
+    {"false", TOKEN_FALSE},
 };
 
 /**
@@ -160,12 +162,24 @@ static char *finalize_string(char *raw)
                 i++;
                 switch (raw[i])
                 {
-                case 'n':  out[j++] = '\n'; break;
-                case 'r':  out[j++] = '\r'; break;
-                case 't':  out[j++] = '\t'; break;
-                case '"':  out[j++] = '"';  break;
-                case '\\': out[j++] = '\\'; break;
-                default:   out[j++] = raw[i]; break;
+                case 'n':
+                    out[j++] = '\n';
+                    break;
+                case 'r':
+                    out[j++] = '\r';
+                    break;
+                case 't':
+                    out[j++] = '\t';
+                    break;
+                case '"':
+                    out[j++] = '"';
+                    break;
+                case '\\':
+                    out[j++] = '\\';
+                    break;
+                default:
+                    out[j++] = raw[i];
+                    break;
                 }
             }
             else
@@ -179,7 +193,7 @@ static char *finalize_string(char *raw)
     free(raw);
     return out;
 }
-//tu konci kod ktory bo vygenerovany AI(Claude Sonnet 5.5.) 12.11.2026
+// tu konci kod ktory bo vygenerovany AI(Claude Sonnet 5.5.) 12.11.2026
 
 /**
  * @brief function compares received token with type id and compares its value to find if it is not keyword
@@ -207,11 +221,11 @@ static int is_indent_changed(int spaces, token_type_t *token_type)
 {
     if (indent_stack[stack_top] < spaces)
     {
-        if(stack_top + 1 >= indent_stack_capacity)
+        if (stack_top + 1 >= indent_stack_capacity)
         {
-            int indent_stack_capacity_new =2 * indent_stack_capacity;
-            int *tmp = realloc(indent_stack, sizeof(int)*indent_stack_capacity_new);
-            if(tmp == NULL)
+            int indent_stack_capacity_new = 2 * indent_stack_capacity;
+            int *tmp = realloc(indent_stack, sizeof(int) * indent_stack_capacity_new);
+            if (tmp == NULL)
             {
                 fprintf(stderr, "Allocation failed\n");
                 return -1;
@@ -244,19 +258,20 @@ static int is_indent_changed(int spaces, token_type_t *token_type)
 }
 
 /**
-  *@brief reset scanner
-  */
-void reset_scanner(void){
-  free(indent_stack);
-  is_new_line = true;
-  indent_stack = NULL;
-  stack_top = 0;
-  indent_stack_capacity = 256;
-  bracket_openings_counter = 0;
-  pending_dedents = 0;
-  is_div = false;
-  current_line = 1;
-  multiline_comment_openings_counter = 0;
+ *@brief reset scanner
+ */
+void reset_scanner(void)
+{
+    free(indent_stack);
+    is_new_line = true;
+    indent_stack = NULL;
+    stack_top = 0;
+    indent_stack_capacity = 256;
+    bracket_openings_counter = 0;
+    pending_dedents = 0;
+    is_div = false;
+    current_line = 1;
+    multiline_comment_openings_counter = 0;
 }
 
 /**
@@ -331,9 +346,9 @@ int get_next_token(token_t *token)
                 }
             }
             // Every char except space and \n turns off new line
-            if (is_new_line && c != ' ' && c != '\n' &&  c != '\r' && c != EOF && c != '/')
+            if (is_new_line && c != ' ' && c != '\n' && c != '\r' && c != EOF && c != '/')
             {
-                if( c == '\t')
+                if (c == '\t')
                 {
                     fprintf(stderr, "Tabulator is not allowed as indent\n");
                     free(str);
@@ -352,7 +367,7 @@ int get_next_token(token_t *token)
                 if (changed)
                 {
                     ungetc(c, stdin);
-                    if(c == '\n')
+                    if (c == '\n')
                     {
                         current_line--;
                     }
@@ -456,7 +471,7 @@ int get_next_token(token_t *token)
             }
             else if (c == ')')
             {
-                if(bracket_openings_counter > 0)
+                if (bracket_openings_counter > 0)
                 {
                     bracket_openings_counter--;
                 }
@@ -494,16 +509,16 @@ int get_next_token(token_t *token)
                     return OK;
                 }
             }
-            else if(c == '@')
+            else if (c == '@')
             {
                 free(str);
-                token->type=TOKEN_AT;
+                token->type = TOKEN_AT;
                 return OK;
             }
-            else if(c == ',')
+            else if (c == ',')
             {
                 free(str);
-                token->type=TOKEN_COMMA;
+                token->type = TOKEN_COMMA;
                 return OK;
             }
             else if (c == EOF)
@@ -540,7 +555,7 @@ int get_next_token(token_t *token)
             {
                 spaces++;
             }
-            else if(c == '\t')
+            else if (c == '\t')
             {
                 fprintf(stderr, "tabulotor is not allowed\n");
                 free(str);
@@ -562,16 +577,16 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
-                    {
-                        current_line--;
-                    }
+                if (c == '\n')
+                {
+                    current_line--;
+                }
                 is_new_line = false;
 
                 int changed = is_indent_changed(spaces, &token->type);
                 if (changed == -1)
                 {
-                  free(str);
+                    free(str);
                     fprintf(stderr, "Inconsistent indentation\n");
                     return ERROR_LEX;
                 }
@@ -619,10 +634,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
-                    {
-                        current_line--;
-                    }
+                if (c == '\n')
+                {
+                    current_line--;
+                }
                 token->type = get_keyword(str);
 
                 if (token->type == TOKEN_ID)
@@ -645,7 +660,7 @@ int get_next_token(token_t *token)
                     return ERROR_INTERNAL;
                 }
             }
-            else if(isdigit(c))
+            else if (isdigit(c))
             {
                 free(str);
                 fprintf(stderr, "Zero can not be followed by zero\n");
@@ -663,10 +678,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
-                    {
-                        current_line--;
-                    }
+                if (c == '\n')
+                {
+                    current_line--;
+                }
                 token->type = TOKEN_INT;
                 token->attribute.i = 0;
                 free(str);
@@ -706,7 +721,7 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
+                if (c == '\n')
                 {
                     current_line--;
                 }
@@ -786,10 +801,10 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
-                    {
-                        current_line--;
-                    }
+                if (c == '\n')
+                {
+                    current_line--;
+                }
                 token->type = TOKEN_DOUBLE;
                 token->attribute.d = strtod(str, NULL);
                 free(str);
@@ -883,7 +898,7 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
+                if (c == '\n')
                 {
                     current_line--;
                 }
@@ -964,14 +979,15 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
+                if (c == '\n')
                 {
                     current_line--;
                 }
                 token->type = TOKEN_STRING;
                 token->attribute.s = finalize_string(str);
-                if(token->attribute.s == NULL){
-                        return ERROR_INTERNAL;
+                if (token->attribute.s == NULL)
+                {
+                    return ERROR_INTERNAL;
                 }
                 return OK;
             }
@@ -1022,7 +1038,8 @@ int get_next_token(token_t *token)
                 }
                 token->type = TOKEN_STRING;
                 token->attribute.s = finalize_string(str);
-                if(token->attribute.s == NULL){
+                if (token->attribute.s == NULL)
+                {
                     return ERROR_INTERNAL;
                 }
                 return OK;
@@ -1104,7 +1121,8 @@ int get_next_token(token_t *token)
                 }
                 token->type = TOKEN_STRING;
                 token->attribute.s = finalize_string(str);
-                if(token->attribute.s == NULL){
+                if (token->attribute.s == NULL)
+                {
                     return ERROR_INTERNAL;
                 }
                 return OK;
@@ -1127,7 +1145,7 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
+                if (c == '\n')
                 {
                     current_line--;
                 }
@@ -1143,7 +1161,7 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
+                if (c == '\n')
                 {
                     current_line--;
                 }
@@ -1159,7 +1177,7 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
+                if (c == '\n')
                 {
                     current_line--;
                 }
@@ -1175,7 +1193,7 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
+                if (c == '\n')
                 {
                     current_line--;
                 }
@@ -1224,7 +1242,7 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
+                if (c == '\n')
                 {
                     current_line--;
                 }
@@ -1255,7 +1273,7 @@ int get_next_token(token_t *token)
             if (c == '\n' || c == EOF)
             {
                 ungetc(c, stdin);
-                if(c == '\n')
+                if (c == '\n')
                 {
                     current_line--;
                 }
@@ -1353,7 +1371,7 @@ int get_next_token(token_t *token)
             else
             {
                 ungetc(c, stdin);
-                if(c == '\n')
+                if (c == '\n')
                 {
                     current_line--;
                 }

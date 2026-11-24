@@ -9,6 +9,7 @@
 // TODO: Implement BOOLTHEN
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -27,7 +28,7 @@ static ErrorCode parse_block(AST_node **out);
 static ErrorCode parse_block_body(AST_node_list *stmt_list);
 static ErrorCode parse_func(AST_node **func_ast);
 static ErrorCode parse_func_body(AST_node **out);
-static ErrorCode parse_id_tail(AST_node_list *stmt_list, token_t id_token);
+static ErrorCode parse_id_tail(AST_node_list *stmt_list, token_t *id_token);
 static ErrorCode parse_line_statement(AST_node_list *stmt_list);
 static ErrorCode parse_line_statement_c(AST_node_list *stmt_list);
 static ErrorCode parse_param(AST_node **func_ast);
@@ -45,8 +46,9 @@ static ErrorCode parse_var_type(Data_types *data_type);
  * @brief Expects the current token to be the given token type.
  *
  * If the current token is not the expected type, returns ERROR_SYNTAX.
- * If the current token is the expected type, it reads the next token and returns OK.
- * If there is an error while reading the next token, it returns ERROR_LEX or ERROR_INTERNAL.
+ * If the current token is the expected type, it reads the next token and
+ * returns OK. If there is an error while reading the next token, it returns
+ * ERROR_LEX or ERROR_INTERNAL.
  *
  * @param token_type Expected token type.
  * @return ErrorCode
@@ -61,7 +63,8 @@ static ErrorCode expect(token_type_t token_type)
 }
 
 /**
- * @brief Extracts the string from the token and sets the token's string attribute to NULL.
+ * @brief Extracts the string from the token and sets the token's string
+ * attribute to NULL.
  *
  * The caller is responsible for freeing the memory.
  *
@@ -77,7 +80,8 @@ static char *extract_string(token_t *token)
 /**
  * @brief Frees the data of the given token.
  *
- * Frees the allocated string and sets the pointer to NULL if the given token type is TOKEN_ID or TOKEN_STRING.
+ * Frees the allocated string and sets the pointer to NULL if the given token
+ * type is TOKEN_ID or TOKEN_STRING.
  */
 static void free_token(token_t *token)
 {
@@ -182,6 +186,9 @@ static ErrorCode parse_block_body(AST_node_list *stmt_list)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
+    case TOKEN_NOT:
+    case TOKEN_TRUE:
+    case TOKEN_FALSE:
         ErrorCode err = parse_statement(stmt_list);
         if (err != OK)
             return err;
@@ -287,6 +294,9 @@ static ErrorCode parse_func_body(AST_node **out)
     case TOKEN_L_PAREN:
     case TOKEN_ADD:
     case TOKEN_SUB:
+    case TOKEN_NOT:
+    case TOKEN_TRUE:
+    case TOKEN_FALSE:
         err = expr_parse(&current, &expr);
         if (err != OK)
             goto fail;
@@ -333,7 +343,7 @@ fail:
     return err;
 }
 
-static ErrorCode parse_id_tail(AST_node_list *stmt_list, token_t id_token)
+static ErrorCode parse_id_tail(AST_node_list *stmt_list, token_t *id_token)
 {
     ErrorCode err;
     AST_node *expr_ast = NULL;
@@ -352,7 +362,10 @@ static ErrorCode parse_id_tail(AST_node_list *stmt_list, token_t id_token)
     case TOKEN_GT:
     case TOKEN_GE:
     case TOKEN_L_PAREN:
-        err = expr_parse_after_id(&id_token, &current, &expr_ast);
+    case TOKEN_AND:
+    case TOKEN_OR:
+    case TOKEN_DOT:
+        err = expr_parse_after_id(id_token, &current, &expr_ast);
         if (err != OK)
             goto fail;
 
@@ -373,17 +386,20 @@ static ErrorCode parse_id_tail(AST_node_list *stmt_list, token_t id_token)
         if (err != OK)
             goto fail;
 
-        char *id = id_token.attribute.s;
+        char *id = id_token->attribute.s;
         statement = AST_new_assign(id, expr_ast, 0);
         if (!AST_list_push(stmt_list, statement))
         {
             err = ERROR_INTERNAL;
             goto fail;
         }
-
+        free(id_token->attribute.s);
+        id_token->attribute.s = NULL;
         return OK;
     case TOKEN_SEMICOLON:
     case TOKEN_EOL:
+        free(id_token->attribute.s);
+        id_token->attribute.s = NULL;
         return OK;
     default:
         return ERROR_SYNTAX;
@@ -502,6 +518,9 @@ static ErrorCode parse_line_statement(AST_node_list *stmt_list)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
+    case TOKEN_NOT:
+    case TOKEN_TRUE:
+    case TOKEN_FALSE:
         err = expr_parse(&current, &expr_ast);
         if (err != OK)
             goto fail;
@@ -515,9 +534,7 @@ static ErrorCode parse_line_statement(AST_node_list *stmt_list)
 
         return OK;
     case TOKEN_ID:
-        token_t id_token = {current.line,
-                            current.type,
-                            current.attribute};
+        token_t id_token = {current.line, current.type, current.attribute};
         current.attribute.s = NULL;
 
         err = expect(TOKEN_ID);
@@ -528,7 +545,7 @@ static ErrorCode parse_line_statement(AST_node_list *stmt_list)
             goto fail;
         }
 
-        err = parse_id_tail(stmt_list, id_token);
+        err = parse_id_tail(stmt_list, &id_token);
         if (err != OK)
         {
             free(id_token.attribute.s);
@@ -692,6 +709,9 @@ static ErrorCode parse_return_value(AST_node **out)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
+    case TOKEN_NOT:
+    case TOKEN_TRUE:
+    case TOKEN_FALSE:
         AST_node *expr = NULL;
         ErrorCode err = expr_parse(&current, &expr);
         if (err != OK)
@@ -740,18 +760,45 @@ static ErrorCode parse_statement(AST_node_list *stmt_list)
         err = parse_block(&if_block);
         if (err != OK)
             goto fail_if;
-
-        err = expect(TOKEN_ELSE);
-        if (err != OK)
-            goto fail_if;
-
-        err = expect(TOKEN_EOL);
-        if (err != OK)
-            goto fail_if;
-
-        err = parse_block(&else_block);
-        if (err != OK)
-            goto fail_if;
+        if (current.type == TOKEN_ELSE)
+        {
+            err = expect(TOKEN_ELSE);
+            if (err != OK)
+            {
+                goto fail_if;
+            }
+            if (current.type == TOKEN_IF)
+            {
+                else_block = AST_new_block(0);
+                if (else_block == NULL)
+                {
+                    err = ERROR_INTERNAL;
+                    goto fail_if;
+                }
+                err = parse_statement(&else_block->as.block.stmts);
+                if (err != OK)
+                {
+                    goto fail_if;
+                }
+            }
+            else
+            {
+                err = expect(TOKEN_EOL);
+                if (err != OK)
+                {
+                    goto fail_if;
+                }
+                err = parse_block(&else_block);
+                if (err != OK)
+                {
+                    goto fail_if;
+                }
+            }
+        }
+        else
+        {
+            else_block = NULL;
+        }
 
         new_if = AST_new_if(expr_ast, if_block, else_block, 0);
         if (!AST_list_push(stmt_list, new_if))
@@ -813,6 +860,9 @@ static ErrorCode parse_statement(AST_node_list *stmt_list)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
+    case TOKEN_NOT:
+    case TOKEN_TRUE:
+    case TOKEN_FALSE:
         err = parse_line_statement(stmt_list);
         if (err != OK)
             return err;
@@ -847,6 +897,9 @@ static ErrorCode parse_statement_list(AST_node_list *stmt_list)
     case TOKEN_L_PAREN:
     case TOKEN_SUB:
     case TOKEN_ADD:
+    case TOKEN_NOT:
+    case TOKEN_TRUE:
+    case TOKEN_FALSE:
         ErrorCode err = parse_statement(stmt_list);
         if (err != OK)
             return err;
@@ -884,6 +937,10 @@ static ErrorCode parse_type(Data_types *data_type)
         err = expect(TOKEN_TYPE_UNIT);
         *data_type = TYPE_UNIT;
         break;
+    case TOKEN_TYPE_BOOLEAN:
+        err = expect(TOKEN_TYPE_BOOLEAN);
+        *data_type = TYPE_BOOLEAN;
+        break;
     default:
         return ERROR_SYNTAX;
     }
@@ -916,10 +973,7 @@ static ErrorCode parse_var_type(Data_types *data_type)
  *
  * @returns ErrorCode - OK, ERROR_LEX, ERROR_INTERNAL
  */
-ErrorCode parser_init(void)
-{
-    return get_next_token(&current);
-}
+ErrorCode parser_init(void) { return get_next_token(&current); }
 
 /**
  * @brief Parses the program.
