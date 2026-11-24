@@ -43,6 +43,7 @@ static ErrorCode parse_type(Data_types *data_type);
 static ErrorCode parse_var_type(Data_types *data_type);
 static ErrorCode parse_func_rest(AST_node *func);
 static ErrorCode parse_method(Data_types receiver_type, const char *receiver_name, AST_node **out);
+static ErrorCode parse_extension(AST_node_list *funcs);
 
 /**
  * @brief Expects the current token to be the given token type.
@@ -186,8 +187,6 @@ static ErrorCode parse_block_body(AST_node_list *stmt_list)
     case TOKEN_DOUBLE:
     case TOKEN_STRING:
     case TOKEN_L_PAREN:
-    case TOKEN_SUB:
-    case TOKEN_ADD:
     case TOKEN_NOT:
     case TOKEN_TRUE:
     case TOKEN_FALSE:
@@ -354,6 +353,8 @@ static ErrorCode parse_id_tail(AST_node_list *stmt_list, token_t *id_token)
     case TOKEN_AND:
     case TOKEN_OR:
     case TOKEN_DOT:
+    case TOKEN_SEMICOLON:
+    case TOKEN_EOL:
         err = expr_parse_after_id(id_token, &current, &expr_ast);
         if (err != OK)
             goto fail;
@@ -382,11 +383,6 @@ static ErrorCode parse_id_tail(AST_node_list *stmt_list, token_t *id_token)
             err = ERROR_INTERNAL;
             goto fail;
         }
-        free(id_token->attribute.s);
-        id_token->attribute.s = NULL;
-        return OK;
-    case TOKEN_SEMICOLON:
-    case TOKEN_EOL:
         free(id_token->attribute.s);
         id_token->attribute.s = NULL;
         return OK;
@@ -505,8 +501,6 @@ static ErrorCode parse_line_statement(AST_node_list *stmt_list)
     case TOKEN_DOUBLE:
     case TOKEN_STRING:
     case TOKEN_L_PAREN:
-    case TOKEN_SUB:
-    case TOKEN_ADD:
     case TOKEN_NOT:
     case TOKEN_TRUE:
     case TOKEN_FALSE:
@@ -523,7 +517,7 @@ static ErrorCode parse_line_statement(AST_node_list *stmt_list)
 
         return OK;
     case TOKEN_ID:
-        token_t id_token = {current.line, current.type, current.attribute};
+        token_t id_token = {current.line, current.type, current.first_on_new_line, current.attribute };
         current.attribute.s = NULL;
 
         err = expect(TOKEN_ID);
@@ -562,7 +556,8 @@ static ErrorCode parse_line_statement_c(AST_node_list *stmt_list)
         ErrorCode err = expect(TOKEN_SEMICOLON);
         if (err != OK)
             return err;
-
+        if (current.type == TOKEN_EOL)
+            return OK;
         err = parse_line_statement(stmt_list);
         if (err != OK)
             return err;
@@ -847,8 +842,6 @@ static ErrorCode parse_statement(AST_node_list *stmt_list)
     case TOKEN_DOUBLE:
     case TOKEN_STRING:
     case TOKEN_L_PAREN:
-    case TOKEN_SUB:
-    case TOKEN_ADD:
     case TOKEN_NOT:
     case TOKEN_TRUE:
     case TOKEN_FALSE:
@@ -884,8 +877,6 @@ static ErrorCode parse_statement_list(AST_node_list *stmt_list)
     case TOKEN_DOUBLE:
     case TOKEN_STRING:
     case TOKEN_L_PAREN:
-    case TOKEN_SUB:
-    case TOKEN_ADD:
     case TOKEN_NOT:
     case TOKEN_TRUE:
     case TOKEN_FALSE:
@@ -991,6 +982,14 @@ ErrorCode parse_program(AST_node **ast)
     while (current.type != TOKEN_EOF)
     {
         AST_node *func = NULL;
+
+        if (current.type == TOKEN_EXTENSION)
+        {
+            err = parse_extension(&program->as.program.funcs);
+            if (err != OK)
+                goto fail;
+            continue;
+        }
 
         err = parse_func(&func);
         if (err != OK)
@@ -1141,7 +1140,7 @@ static ErrorCode parse_extension(AST_node_list *funcs)
     ErrorCode err;
     char *receiver_name = NULL;
     Data_types receiver_type = TYPE_UNKNOWN;
-    AST_node *method;
+    AST_node *method = NULL;
 
     err = expect(TOKEN_EXTENSION);
     if (err != OK)
@@ -1158,6 +1157,7 @@ static ErrorCode parse_extension(AST_node_list *funcs)
         err = ERROR_SYNTAX;
         goto fail;
     }
+    receiver_name = extract_string(&current);
 
     err = expect(TOKEN_ID);
     if (err != OK)
@@ -1208,7 +1208,7 @@ static ErrorCode parse_extension(AST_node_list *funcs)
         }
         do
         {
-            err = parse_method;
+            err = parse_method(receiver_type, receiver_name, &method);
             if (err != OK)
             {
                 goto fail;

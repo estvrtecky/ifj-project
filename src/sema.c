@@ -384,7 +384,7 @@ static void visit_return(Sema_ctx *ctx, AST_node *return_stmt){
     AST_node *value = return_stmt->as.return_stmt.value;
     if (value == NULL){
         if (f->return_type != TYPE_UNIT){
-            set_error(ctx, 10);
+            set_error(ctx, 6);
         }
         return;
     }

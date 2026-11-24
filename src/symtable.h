@@ -12,6 +12,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include "types.h"
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C"
