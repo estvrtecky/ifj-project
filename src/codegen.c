@@ -233,10 +233,26 @@ static void translate_expresion(AST_node *expresion_node){
       fprintf(out_file, "NOTS\n");
     }
     else if(operation->op == OP_and){
-      fprintf(out_file, "ANDS\n");
+      int id = unique_id_counter++;
+      translate_expresion(operation->left);
+      fprintf(out_file, "PUSH bool@false\n");
+      fprintf(out_file, "JUMPIFEQS _L%d_and_false\n", id);
+      translate_expresion(operation->right);
+      fprintf(out_file, "JUMP _L%d_and_end\n", id);
+      fprintf(out_file, "LABEL _L%d_and_false\n", id);
+      fprintf(out_file, "PUSHS bool@false\n");
+      fprintf(out_file, "LABEL _L%d_and_end\n", id);
     }
     else if(operation->op == OP_or){
-      fprintf(out_file, "ORS\n");
+      int id = unique_id_counter++;
+      translate_expresion(operation->left);
+      fprintf(out_file, "PUSH bool@true\n");
+      fprintf(out_file, "JUMPIFEQS _L%d_or_true\n", id);
+      translate_expresion(operation->right);
+      fprintf(out_file, "JUMP _L%d_or_end\n", id);
+      fprintf(out_file, "LABEL _L%d_and_false\n", id);
+      fprintf(out_file, "PUSHS bool@true\n");
+      fprintf(out_file, "LABEL _L%d_or_end\n", id);
     }
   }
   else if(expresion_node->kind == AST_unop){
@@ -298,6 +314,14 @@ static void translate_expresion(AST_node *expresion_node){
       fprintf(out_file, "LABEL _L%d_ok\n",id);
       fprintf(out_file, "PUSHS GF@_t1\n");
     }
+    else if(strcmp(call_node->name, "readBoolean") == 0){
+      int id = unique_id_counter++;
+      fprintf(out_file, "READ GF@_t1 bool\n");
+      fprintf(out_file, "JUMPIFNEQ _L%d_ok GF@_t1 nil@nil\n", id);
+      fprintf(out_file, "MOVE GF@_t1 bool@false\n");
+      fprintf(out_file, "LABEL _L%d_ok\n", id);
+      fprintf(out_file, "PUSH GF@_t1\n");
+    }
     else if(strcmp(call_node->name, "strLength") == 0){
       translate_expresion(call_node->args.items[0]);
       fprintf(out_file, "POPS GF@_t1\n");
@@ -343,6 +367,17 @@ static void translate_expresion(AST_node *expresion_node){
       }
       else if(builtin_node->data_type == TYPE_UNIT){
         fprintf(out_file, "MOVE GF@_t2 string@()\n");
+      }
+      else if(builtin_node->data_type == TYPE_BOOLEAN){
+        // This block was co-developed using Claude Sonnet 5.5 with prompt: "Preco sa nespravne spracovava toStr(boolean)"
+        int id = unique_id_counter++;
+        fprintf(out_file, "JUMPIFEQ _L%d_true GF@_t1 bool@true\n", id);
+        fprintf(out_file, "MOVE GF@_t2 string@false\n");
+        fprintf(out_file, "JUMP _L%d_end\n", id);
+        fprintf(out_file, "LABEL _L%d_true\n");
+        fprintf(out_file, "MOVE GF@_t2 string@true\n");
+        fprintf(out_file, "LABEL _L%d_end\n", id);
+        // End of block co-developed with Claude Sonnet 5.5
       }
       else{
         fprintf(out_file, "MOVE GF@_t2 GF@_t1\n");
