@@ -579,12 +579,18 @@ static ErrorCode parse_args(token_t *token, AST_node_list *args)
       }
       if (token->type == TOKEN_R_PAREN)
       {
-        err = (ErrorCode)get_next_token(token);
-        if (err != OK)
-        {
-          return err;
+        if(token->first_on_new_line == false){
+          return ERROR_SYNTAX;
         }
-        break;
+        else{
+          err = (ErrorCode)get_next_token(token);
+          if (err != OK)
+          {
+            return err;
+          }
+          break;
+        }
+        
       }
       continue;
     }
