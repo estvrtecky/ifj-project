@@ -41,6 +41,7 @@ static ErrorCode parse_statement(AST_node_list *stmt_list);
 static ErrorCode parse_statement_list(AST_node_list *stmt_list);
 static ErrorCode parse_type(Data_types *data_type);
 static ErrorCode parse_var_type(Data_types *data_type);
+static ErrorCode parse_func_rest(AST_node *func);
 
 /**
  * @brief Expects the current token to be the given token type.
@@ -210,7 +211,6 @@ static ErrorCode parse_func(AST_node **out)
         bool is_main = false;
         char *func_id = NULL;
         AST_node *func_ast = NULL;
-        AST_node *func_body = NULL;
 
         err = parse_annotation(&is_main);
         if (err != OK)
@@ -246,22 +246,11 @@ static ErrorCode parse_func(AST_node **out)
         if (err != OK)
             goto fail;
 
-        Data_types data_type = TYPE_UNKNOWN;
-        err = parse_return_type(&data_type);
+        err = parse_func_rest(func_ast);
         if (err != OK)
+        {
             goto fail;
-        func_ast->as.func_def.return_type = data_type;
-        if (data_type != TYPE_UNKNOWN)
-            func_ast->as.func_def.return_explicit = true;
-
-        err = expect(TOKEN_ASSIGN);
-        if (err != OK)
-            goto fail;
-
-        err = parse_func_body(&func_body);
-        if (err != OK)
-            goto fail;
-        func_ast->as.func_def.body = func_body;
+        }
 
         *out = func_ast;
         free(func_id);
@@ -270,7 +259,6 @@ static ErrorCode parse_func(AST_node **out)
     fail:
         free(func_id);
         AST_free(func_ast);
-        AST_free(func_body);
         return err;
     default:
         return ERROR_SYNTAX;
@@ -1022,4 +1010,38 @@ fail:
     free_token(&current);
     AST_free(program);
     return err;
+}
+
+/**
+ * @brief Parses the rest of a function definition: optional return type, '=' and body.
+ * Shared by parse_func and parse_method. On error the caller frees 'func'.
+ */
+static ErrorCode parse_func_rest(AST_node *func)
+{
+    Data_types data_type = TYPE_UNKNOWN;
+    ErrorCode err = parse_return_type(&data_type);
+    if (err != OK)
+    {
+        return err;
+    }
+
+    func->as.func_def.return_type = data_type;
+    if (data_type != TYPE_UNKNOWN)
+    {
+        func->as.func_def.return_explicit = true;
+    }
+    err = expect(TOKEN_ASSIGN);
+    if (err != OK)
+    {
+        return err;
+    }
+
+    AST_node *body = NULL;
+    err = parse_func_body(&body);
+    if (err != OK)
+    {
+        return err;
+    }
+    func->as.func_def.body = body;
+    return OK;
 }
