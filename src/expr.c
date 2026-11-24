@@ -540,6 +540,121 @@ static ErrorCode reduce(Stack *s, size_t line)
   return OK;
 }
 
+// Parses call arguments up to and including the closing ')'.
+// On entry 'token' is the first token after '('.
+// On exit 'token' is the first token after ')'.
+// Arguments are appended to 'args'. On error the caller frees the node that
+// owns 'args'.
+static ErrorCode parse_args(token_t *token, AST_node_list *args)
+{
+  if (token->type == TOKEN_R_PAREN)
+  {
+    ErrorCode err = (ErrorCode)get_next_token(token);
+    if (err != OK)
+    {
+      return err;
+    }
+    return OK;
+  }
+
+  while (true)
+  {
+    AST_node *arg = NULL;
+    ErrorCode err = expr_parse(token, &arg);
+    if (err != OK)
+    {
+      return err;
+    }
+    if (!AST_list_push(args, arg))
+    {
+      AST_free(arg);
+      return ERROR_INTERNAL;
+    }
+    if (token->type == TOKEN_COMMA)
+    {
+      err = (ErrorCode)get_next_token(token);
+      if (err != OK)
+      {
+        return err;
+      }
+      if (token->type == TOKEN_R_PAREN)
+      {
+        err = (ErrorCode)get_next_token(token);
+        if (err != OK)
+        {
+          return err;
+        }
+        break;
+      }
+      continue;
+    }
+    if (token->type == TOKEN_R_PAREN)
+    {
+      err = (ErrorCode)get_next_token(token);
+      if (err != OK)
+      {
+        return err;
+      }
+      break;
+    }
+    return ERROR_SYNTAX;
+  }
+  return OK;
+}
+
+// Wraps 'term' into AST_member nodes while the next token is '.'.
+// On entry 'token' is the first token after the term.
+// On exit 'token' is the first token after the whole chain.
+// *term always holds a valid tree or NULL; on error the caller frees it.
+static ErrorCode parse_member_chain(token_t *token, AST_node **term)
+{
+  while (token->type == TOKEN_DOT)
+  {
+    int line = token->line;
+    ErrorCode err = (ErrorCode)get_next_token(token);
+    if (err != OK)
+    {
+      return err;
+    }
+    if (token->type != TOKEN_ID)
+    {
+      return ERROR_SYNTAX;
+    }
+    char *name = token->attribute.s;
+    token->attribute.s = NULL;
+    err = (ErrorCode)get_next_token(token);
+    if (err != OK)
+    {
+      free(name);
+      return err;
+    }
+    bool has_parens = (token->type == TOKEN_L_PAREN);
+    AST_node *member = AST_new_member(*term, name, has_parens, line);
+    free(name);
+    if (member == NULL)
+    {
+      *term = NULL;
+      return ERROR_INTERNAL;
+    }
+    *term = member;
+
+    if (has_parens)
+    {
+      err = (ErrorCode)get_next_token(token);
+      if (err != OK)
+      {
+        return err;
+      }
+      err = parse_args(token, &member->as.member.args);
+      if (err != OK)
+      {
+        return err;
+      }
+    }
+  }
+  return OK;
+}
+
 static ErrorCode parse_call(token_t *id_token, token_t *token, AST_node **out)
 {
   *out = NULL;
@@ -559,65 +674,13 @@ static ErrorCode parse_call(token_t *id_token, token_t *token, AST_node **out)
     return err;
   }
 
-  if (token->type == TOKEN_R_PAREN)
+  err = parse_args(token, &call->as.call.args);
+  if (err != OK)
   {
-    err = (ErrorCode)get_next_token(token);
-    if (err != OK)
-    {
-      AST_free(call);
-      return err;
-    }
-    *out = call;
-    return OK;
-  }
-  while (true)
-  {
-    AST_node *arg = NULL;
-    err = expr_parse(token, &arg);
-    if (err != OK)
-    {
-      AST_free(call);
-      return err;
-    }
-    if (!AST_list_push(&call->as.call.args, arg))
-    {
-      AST_free(arg);
-      AST_free(call);
-      return ERROR_INTERNAL;
-    }
-    if (token->type == TOKEN_COMMA)
-    {
-      err = (ErrorCode)get_next_token(token);
-      if (err != OK)
-      {
-        AST_free(call);
-        return err;
-      }
-      if (token->type == TOKEN_R_PAREN)
-      {
-        err = (ErrorCode)get_next_token(token);
-        if (err != OK)
-        {
-          AST_free(call);
-          return err;
-        }
-        break;
-      }
-      continue;
-    }
-    if (token->type == TOKEN_R_PAREN)
-    {
-      err = (ErrorCode)get_next_token(token);
-      if (err != OK)
-      {
-        AST_free(call);
-        return err;
-      }
-      break;
-    }
     AST_free(call);
-    return ERROR_SYNTAX;
+    return err;
   }
+
   *out = call;
   return OK;
 }
@@ -660,6 +723,12 @@ static ErrorCode parse_expression(token_t *token, token_t *first_id,
     err = make_id_or_call(first_id, token, &leaf);
     if (err != OK)
     {
+      goto cleanup;
+    }
+    err = parse_member_chain(token, &leaf);
+    if (err != OK)
+    {
+      AST_free(leaf);
       goto cleanup;
     }
     if (!stack_insert_mark_after(&stack, 0))
@@ -738,6 +807,12 @@ static ErrorCode parse_expression(token_t *token, token_t *first_id,
       {
         goto cleanup;
       }
+      err = parse_member_chain(token, &leaf);
+      if (err != OK)
+      {
+        AST_free(leaf);
+        goto cleanup;
+      }
       if (!stack_push(&stack, make_term(T_Letter_i, leaf)))
       {
         AST_free(leaf);
@@ -754,6 +829,25 @@ static ErrorCode parse_expression(token_t *token, token_t *first_id,
       {
         goto cleanup;
       }
+      err = get_next_token(token);
+      if (err != OK)
+      {
+        AST_free(leaf);
+        goto cleanup;
+      }
+      err = parse_member_chain(token, &leaf);
+      if (err != OK)
+      {
+        AST_free(leaf);
+        goto cleanup;
+      }
+      if (!stack_push(&stack, make_term(T_Letter_i, leaf)))
+      {
+        err = ERROR_INTERNAL;
+        goto cleanup;
+      }
+      unary_allowed = false;
+      continue;
     }
 
     if (!stack_push(&stack, make_term(input_terminal, leaf)))
