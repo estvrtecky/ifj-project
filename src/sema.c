@@ -37,6 +37,7 @@ static Data_types visit_expr(Sema_ctx *ctx, AST_node *exprt);
 static Data_types visit_call(Sema_ctx *ctx, AST_node *call);
 static Data_types visit_binop(Sema_ctx *ctx, AST_node *binop);
 static Data_types visit_unop(Sema_ctx *ctx, AST_node *unop);
+static Data_types visit_member(Sema_ctx *ctx, AST_node *f);
 static void visit_func(Sema_ctx *ctx, AST_node *f);
 static Data_types tail_type(Sema_ctx *ctx, AST_node *stmt, Data_types target);
 
@@ -464,6 +465,11 @@ static Data_types visit_expr(Sema_ctx *ctx, AST_node *expr){
     case AST_call:
         expr->data_type = visit_call(ctx, expr);
         break;
+    case AST_member:
+        expr->data_type = visit_member(ctx, expr);
+        break;
+    case AST_conv_int_to_double:
+        break;
     default:
         set_error(ctx, 99);
         return TYPE_UNKNOWN;
@@ -598,6 +604,51 @@ static Data_types visit_call(Sema_ctx *ctx, AST_node *call){
     }
     return st_func_return_type(f);
     
+}
+
+static Data_types visit_member(Sema_ctx *ctx, AST_node *expr){
+    Data_types recv_type = visit_expr(ctx, expr->as.member.receiver);
+    if(failed(ctx)){
+        return TYPE_UNKNOWN;
+    }
+    char *mangled = AST_ext_name(recv_type, expr->as.member.name);
+    if(mangled == NULL){
+        set_error(ctx, 3);
+        return TYPE_UNKNOWN;
+    }
+    void *output = NULL;
+    ht_search(ctx->funcs, mangled, &output);
+    Func_info *info = output;
+    if (info == NULL){
+        free(mangled);
+        set_error(ctx, 3);
+        return TYPE_UNKNOWN;
+    }
+    if (expr->as.member.has_parens != info->node->as.func_def.has_param_list){
+        free(mangled);
+        set_error(ctx, 5);
+        return TYPE_UNKNOWN;
+    }
+    AST_node *receiver = expr->as.member.receiver;
+    AST_node_list old_args = expr->as.member.args;
+    free(expr->as.member.name);
+    expr->kind = AST_call;
+    expr->as.call.name = mangled;
+    AST_node_list new_clear_list = {.capacity = 0, .count = 0, .items = NULL};
+    expr->as.call.args = new_clear_list;
+    if(AST_list_push(&(expr->as.call.args), receiver) == false){
+        set_error(ctx, 99);
+        return TYPE_UNKNOWN;
+    }
+    for (size_t i = 0; i < old_args.count; i++){
+        if(AST_list_push(&(expr->as.call.args), old_args.items[i]) == false){
+            set_error(ctx, 99);
+            return TYPE_UNKNOWN;
+        }
+    }
+    free(old_args.items);
+    expr->as.call.has_parens = true;
+    return visit_call(ctx, expr);
 }
 
 static void visit_block(Sema_ctx *ctx, AST_node *block){
