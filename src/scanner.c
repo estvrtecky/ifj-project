@@ -129,7 +129,7 @@ static int append_char(char **str, size_t *length, size_t *capacity, char c)
 
 /* Tento usek kodu(funckia finalize string) bola vygenerovana AI(Claude Sonnet 5.5) dna 12.11.2026
 pisem scanner a teraz sa objavila tato vytka od kapitana potom co nechal cely nas repozitar prejst ai. "Reťazcový token obsahuje úvodzovky a nedekódované escape sekvencie ("neg\n" vrátane " a \+n). Má vrátiť obsah bez úvodzoviek s dekódovanými escapes, pri """ obsah doslovne bez trojitých úvodzoviek". tu je nas kod co aktualne je na githube a patri scanneru. Napis mi funckiu ktora ocisti string od ""*
-!!! Funkcia bola dna 24.11. manualne upravena Andreou Valekovou, miesto upravi je oznacene "*"/
+!!! Funkcia bola dna 24.11. manualne upravena Andreou Valekovou, miesto upravi je oznacene "*" */
 /**
  * @brief Vytvorí dekódovaný obsah reťazca (bez úvodzoviek, s dekódovanými escapes)
  * @param raw surový text tokenu vrátane úvodzoviek
