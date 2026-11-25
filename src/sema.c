@@ -813,7 +813,7 @@ static Data_types try_valmem(Sema_ctx *ctx, AST_node *expr, Data_types recv_type
     {
         builtin = "toInt";
     }
-    else if (strcmp(m, "$floor") == 0 && recv_type == TYPE_DOUBLE)
+    else if (strcmp(m, "floor") == 0 && recv_type == TYPE_DOUBLE)
     {
         builtin = "$floor";
     }
