@@ -188,7 +188,6 @@ static ErrorCode parse_block_body(AST_node_list *stmt_list)
     case TOKEN_DOUBLE:
     case TOKEN_STRING:
     case TOKEN_L_PAREN:
-    case TOKEN_NOT:
     case TOKEN_TRUE:
     case TOKEN_FALSE:
         ErrorCode err = parse_statement(stmt_list);
@@ -496,7 +495,6 @@ static ErrorCode parse_line_statement(AST_node_list *stmt_list)
     case TOKEN_DOUBLE:
     case TOKEN_STRING:
     case TOKEN_L_PAREN:
-    case TOKEN_NOT:
     case TOKEN_TRUE:
     case TOKEN_FALSE:
         err = expr_parse(&current, &expr_ast);
@@ -843,7 +841,6 @@ static ErrorCode parse_statement(AST_node_list *stmt_list)
     case TOKEN_DOUBLE:
     case TOKEN_STRING:
     case TOKEN_L_PAREN:
-    case TOKEN_NOT:
     case TOKEN_TRUE:
     case TOKEN_FALSE:
         err = parse_line_statement(stmt_list);
@@ -878,7 +875,6 @@ static ErrorCode parse_statement_list(AST_node_list *stmt_list)
     case TOKEN_DOUBLE:
     case TOKEN_STRING:
     case TOKEN_L_PAREN:
-    case TOKEN_NOT:
     case TOKEN_TRUE:
     case TOKEN_FALSE:
         ErrorCode err = parse_statement(stmt_list);
