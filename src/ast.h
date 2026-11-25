@@ -102,6 +102,10 @@ typedef struct {
   AST_node *body;         // body is a BLOCK node
   bool is_extension;
   bool has_param_list;
+  size_t *list_sizes; // number of params in each list, e.g. [1, 1, 1] for
+                      // add(a)(b)(c)
+  size_t list_count;  // 0 = no parentheses (def answer: Int); receiver of an
+                      // extension method is params[0] and belongs to no list
 } AST_func_def_data;
 
 typedef struct {
@@ -174,6 +178,9 @@ typedef struct {
   char *name;
   AST_node_list args;
   bool has_parens;
+  size_t *arg_list_sizes; // number of args in each list, e.g. [1, 1, 1] for
+                          // add(1)(2)(3)
+  size_t arg_list_count;
 } AST_call_data; // Function name and arguments in order from left to right.
                  // Without FUNEXP arguments are only literals or identifiers.
 
@@ -269,7 +276,9 @@ bool AST_list_push(
                      // release it.
 bool AST_func_add_param(
     AST_node *func, const char *name,
-    Data_types type);          // Copies the name, true/false, just like push.
+    Data_types type); // Copies the name, true/false, just like push.
+bool AST_func_add_list(AST_node *func, size_t size);
+bool AST_call_add_list(AST_node *call, size_t size);
 void AST_free(AST_node *node); // Recursively frees the node, the entire
                                // subtree, and all strings; NULL is allowed.
 void AST_dump(

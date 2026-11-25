@@ -41,6 +41,19 @@ static void free_list(AST_node_list *list) {
   list->capacity = 0;
 }
 
+// Appends 'value' to a dynamic array of size_t. Returns false on allocation
+// failure.
+static bool push_size(size_t **array, size_t *count, size_t value) {
+  size_t *tmp = realloc(*array, (*count + 1) * sizeof(size_t));
+  if (tmp == NULL) {
+    return false;
+  }
+  *array = tmp;
+  (*array)[*count] = value;
+  *count = *count + 1;
+  return true;
+}
+
 /* Returns the IFJ26 name of a data type ("Int", "Double", ...),
    or "?" for an unknown type. Used by the dump. */
 static const char *type_name(Data_types type) {
@@ -375,6 +388,22 @@ bool AST_func_add_param(AST_node *func, const char *name, Data_types type) {
   return true;
 }
 
+bool AST_func_add_list(AST_node *func, size_t size) {
+  if (func == NULL || func->kind != AST_func_def) {
+    return false;
+  }
+  return push_size(&func->as.func_def.list_sizes, &func->as.func_def.list_count,
+                   size);
+}
+
+bool AST_call_add_list(AST_node *call, size_t size) {
+  if (call == NULL || call->kind != AST_call) {
+    return false;
+  }
+  return push_size(&call->as.call.arg_list_sizes, &call->as.call.arg_list_count,
+                   size);
+}
+
 /* Recursively frees 'node', its whole subtree and all owned strings.
    Does nothing if 'node' is NULL. */
 void AST_free(AST_node *node) {
@@ -387,6 +416,7 @@ void AST_free(AST_node *node) {
     break;
   case AST_func_def:
     free(node->as.func_def.name);
+    free(node->as.func_def.list_sizes);
     for (size_t i = 0; i < node->as.func_def.param_count; i++) {
       free(node->as.func_def.params[i].name);
     }
@@ -438,6 +468,7 @@ void AST_free(AST_node *node) {
   case AST_call:
     free(node->as.call.name);
     free_list(&node->as.call.args);
+    free(node->as.call.arg_list_sizes);
     break;
   case AST_member:
     AST_free(node->as.member.receiver);
@@ -663,16 +694,30 @@ static void dump_expr(const AST_node *node, FILE *out) {
 
 // Prints the parameter list of a function definition, e.g. (a: Int, b: String).
 static void dump_params(const AST_node *func, FILE *out) {
-  fputs("(", out);
-  for (size_t i = 0; i < func->as.func_def.param_count; i++) {
-    if (i > 0) {
-      fputs(", ", out);
-    }
-    fputs(func->as.func_def.params[i].name, out);
+  size_t i = 0;
+
+  if (func->as.func_def.is_extension) {
+    fputs("[", out);
+    fputs(func->as.func_def.params[0].name, out);
     fputs(": ", out);
-    fputs(type_name(func->as.func_def.params[i].type), out);
+    fputs(type_name(func->as.func_def.params[0].type), out);
+    fputs("]", out);
+    i = 1;
   }
-  fputs(")", out);
+
+  for (size_t l = 0; l < func->as.func_def.list_count; l++) {
+    fputs("(", out);
+    for (size_t k = 0; k < func->as.func_def.list_sizes[l]; k++) {
+      if (k > 0) {
+        fputs(", ", out);
+      }
+      fputs(func->as.func_def.params[i].name, out);
+      fputs(": ", out);
+      fputs(type_name(func->as.func_def.params[i].type), out);
+      i++;
+    }
+    fputs(")", out);
+  }
 }
 
 /* Prints a statement-level node and its children, one node per line,
