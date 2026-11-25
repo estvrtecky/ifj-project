@@ -795,6 +795,68 @@ static Data_types visit_call(Sema_ctx *ctx, AST_node *call)
     return st_func_return_type(f);
 }
 
+// Rewrites 'recv.member' (no parens) to a builtin call, e.g. "abc".length -> strLength("abc").
+// Returns TYPE_UNKNOWN if the member is not a VALMEM member.
+static Data_types try_valmem(Sema_ctx *ctx, AST_node *expr, Data_types recv_type)
+{
+    if (expr->as.member.has_parens)
+    {
+        return TYPE_UNKNOWN;
+    }
+    const char *m = expr->as.member.name;
+    const char *builtin = NULL;
+    if (strcmp(m, "toString") == 0)
+    {
+        builtin = "toStr";
+    }
+    else if (strcmp(m, "toInt") == 0 && recv_type == TYPE_DOUBLE)
+    {
+        builtin = "toInt";
+    }
+    else if (strcmp(m, "$floor") == 0 && recv_type == TYPE_DOUBLE)
+    {
+        builtin = "$floor";
+    }
+    else if (strcmp(m, "length") == 0 && recv_type == TYPE_STRING)
+    {
+        builtin = "strLength";
+    }
+    if (builtin == NULL)
+    {
+        return TYPE_UNKNOWN;
+    }
+
+    char *name = malloc(strlen(builtin) + 1);
+    if (name == NULL)
+    {
+        set_error(ctx, 99);
+        return TYPE_UNKNOWN;
+    }
+    strcpy(name, builtin);
+
+    AST_node *receiver = expr->as.member.receiver;
+    free(expr->as.member.name);
+    free(expr->as.member.args.items);
+
+    memset(&expr->as.call, 0, sizeof(expr->as.call));
+    expr->kind = AST_call;
+    expr->as.call.name = name;
+    expr->as.call.has_parens = true;
+
+    if (!AST_list_push(&expr->as.call.args, receiver))
+    {
+        AST_free(receiver);
+        set_error(ctx, 99);
+        return TYPE_UNKNOWN;
+    }
+    if (!AST_call_add_list(expr, 1))
+    {
+        set_error(ctx, 99);
+        return TYPE_UNKNOWN;
+    }
+    return visit_call(ctx, expr);
+}
+
 static Data_types visit_member(Sema_ctx *ctx, AST_node *expr)
 {
     Data_types recv_type = visit_expr(ctx, expr->as.member.receiver);
@@ -806,6 +868,11 @@ static Data_types visit_member(Sema_ctx *ctx, AST_node *expr)
     char *mangled = AST_ext_name(recv_type, expr->as.member.name);
     if (mangled == NULL)
     {
+        Data_types t = try_valmem(ctx, expr, recv_type);
+        if (t != TYPE_UNKNOWN || failed(ctx))
+        {
+            return t;
+        }
         set_error(ctx, 3);
         return TYPE_UNKNOWN;
     }
@@ -815,6 +882,11 @@ static Data_types visit_member(Sema_ctx *ctx, AST_node *expr)
     if (info == NULL)
     {
         free(mangled);
+        Data_types t = try_valmem(ctx, expr, recv_type);
+        if (t != TYPE_UNKNOWN || failed(ctx))
+        {
+            return t;
+        }
         set_error(ctx, 3);
         return TYPE_UNKNOWN;
     }
