@@ -7,6 +7,9 @@
 #include "error.h"
 #include "scanner.h"
 
+static int append_char(char **str, size_t *length, size_t *capacity, char c);
+static token_type_t get_keyword(const char *str);
+
 typedef enum
 {
     STATE_START,
@@ -72,6 +75,11 @@ static bool is_div = false;
 static int current_line = 1;
 static int multiline_comment_openings_counter = 0;
 static bool pending_dot = false;
+static token_t *token_queue = NULL; // Dynamic array of waiting tokens
+static int queue_head = 0;          // Index of first not yet returned token
+static int queue_count = 0;         // Count of tokens in array
+static int queue_capacity = 0;
+static bool in_interp_expr = false; // Right now tokens are reading inside ${ ... }
 
 static const keyword_t keywords[] = {
     {"def", TOKEN_DEF},
@@ -99,6 +107,231 @@ static const keyword_t keywords[] = {
     {"true", TOKEN_TRUE},
     {"false", TOKEN_FALSE},
 };
+
+static int queue_push(token_type_t type, char *s){
+    if(queue_count == queue_capacity){
+        int new_capacity = (queue_capacity == 0)? 16 : 2 * queue_capacity;
+        void *tmp = realloc(token_queue, new_capacity * sizeof(token_t));
+        if(tmp == NULL){
+            free(s);
+            return ERROR_INTERNAL;
+        }
+        token_queue = tmp;
+        queue_capacity = new_capacity;
+    }
+    token_t *token = &token_queue[queue_count++];
+    token->type = type;
+    token->line = current_line;
+    token->first_on_new_line = false;
+    token->attribute.s = s;
+    return OK;
+}
+
+static int queue_pop(token_t *out){
+    *out = token_queue[queue_head++];
+    if(queue_head == queue_count){
+        queue_head = 0;
+        queue_count = 0;
+    }
+    return OK;
+}
+
+static int push_string(char *text){
+    char *copy = malloc(strlen(text) + 1);
+    if(copy == NULL){
+        return ERROR_INTERNAL;
+    }
+    strcpy(copy, text);
+    int error_code = queue_push(TOKEN_STRING, copy);
+    if(error_code != OK){
+        return ERROR_INTERNAL;
+    }
+    return error_code;
+}
+
+static int flush(char *buffer, size_t *lenght){
+    if(*lenght > 0){
+        if(queue_push(TOKEN_ADD, NULL) != OK){
+            return ERROR_INTERNAL;
+        }
+        if(push_string(buffer) != OK){
+            return ERROR_INTERNAL;
+        }
+        *lenght = 0;
+        buffer[0] = '\0';
+    }
+    return OK;
+}
+
+static int push_tostr_open(){
+    if(queue_push(TOKEN_ADD, NULL) != OK){
+        return ERROR_INTERNAL;
+    }
+    char *name =  malloc(6 * sizeof(char));
+    if(name == NULL){
+        return ERROR_INTERNAL;
+    }
+    strcpy(name, "toStr");
+    if(queue_push(TOKEN_ID, name) != OK){
+        return ERROR_INTERNAL;
+    }
+    if(queue_push(TOKEN_L_PAREN, NULL) != OK){
+        return ERROR_INTERNAL;
+    }
+    return OK;
+}
+
+static int read_interp_part(){
+    char *buffer = calloc(16, sizeof(char));
+    if(buffer == NULL){
+        return ERROR_INTERNAL;
+    }
+    size_t length = 0;
+    size_t capacity = 16;
+    while(true){
+        int c = getchar();
+        if(c == '"'){
+            if(flush(buffer, &length) != OK){
+                free(buffer);
+                return ERROR_INTERNAL;
+            }
+            if(queue_push(TOKEN_R_PAREN, NULL) != OK){
+                free(buffer);
+                return ERROR_INTERNAL;
+            }
+            free(buffer);
+            return OK;
+        }
+        else if(c == '\n' || c == EOF){
+            free(buffer);
+            return ERROR_LEX;
+        }
+        else if(c == '\\'){
+            c = getchar();
+            switch (c)
+            {
+            case 'n':
+                if(append_char(&buffer, &length, &capacity, '\n') != OK){
+                    free(buffer);
+                    return ERROR_INTERNAL;
+                }
+                break;
+            case 'r':
+                if(append_char(&buffer, &length, &capacity, '\r') != OK){
+                    free(buffer);
+                    return ERROR_INTERNAL;
+                }
+                break;
+            case 't':
+                if(append_char(&buffer, &length, &capacity, '\t') != OK){
+                    free(buffer);
+                    return ERROR_INTERNAL;
+                }
+                break;
+            case '"':
+                if(append_char(&buffer, &length, &capacity, '"') != OK){
+                    free(buffer);
+                    return ERROR_INTERNAL;
+                }
+                break;
+            case '\\':
+                if(append_char(&buffer, &length, &capacity, '\\') != OK){
+                    free(buffer);
+                    return ERROR_INTERNAL;
+                }
+                break;
+            default:
+                free(buffer);
+                return ERROR_LEX;
+            }
+            continue;
+        }
+        else if(c == '$'){
+            int d = getchar();
+            if(d == '$'){
+                if(append_char(&buffer, &length, &capacity, '$') != OK){
+                    free(buffer);
+                    return ERROR_INTERNAL;
+                }
+            }
+            else if( d == '{'){
+                if(flush(buffer, &length) != OK){
+                    free(buffer);
+                    return ERROR_INTERNAL;
+                }
+                if(push_tostr_open() != OK){
+                    free(buffer);
+                    return ERROR_INTERNAL;
+                }
+                in_interp_expr = true;
+                free(buffer);
+                return OK;
+            }
+            else if(isalpha(d) || d == '_'){
+                if(flush(buffer, &length) != OK){
+                    free(buffer);
+                    return ERROR_INTERNAL;
+                }
+                char *name = calloc(16, sizeof(char));
+                if(name == NULL){
+                    free(buffer);
+                    return ERROR_INTERNAL;
+                }
+                size_t name_length = 0, name_capacity = 16;
+                if(append_char(&name, &name_length, &name_capacity, d) != OK){
+                    free(buffer);
+                    free(name);
+                    return ERROR_INTERNAL;
+                }
+                do{
+                    d = getchar();
+                    if(isalnum(d) || d == '_'){
+                        if(append_char(&name, &name_length, &name_capacity, d) != OK){
+                            free(buffer);
+                            free(name);
+                            return ERROR_INTERNAL;
+                        }
+                    }
+                    else{
+                        ungetc(d, stdin);
+                        break;
+                    }
+                }while(isalnum(d) || d == '_');
+                if(strcmp(name, "_") == 0 || get_keyword(name) != TOKEN_ID){
+                    free(name);
+                    free(buffer);
+                    return ERROR_LEX;
+                }
+
+                if(push_tostr_open() != OK){
+                    free(buffer);
+                    free(name);
+                    return ERROR_INTERNAL;
+                }
+                if(queue_push(TOKEN_ID, name) != OK){
+                    free(buffer);
+                    return ERROR_INTERNAL;
+                }
+                if(queue_push(TOKEN_R_PAREN, NULL) != OK){
+                    free(buffer);
+                    return ERROR_INTERNAL;
+                }
+            }
+            else{
+                free(buffer);
+                return ERROR_LEX;
+            }
+        }
+        else {
+            if(append_char(&buffer, &length, &capacity, c) != OK){
+                free(buffer);
+                return ERROR_INTERNAL;
+            }
+        }
+    }
+}
+
+
 
 /**
  * @brief function saves char to array
@@ -275,6 +508,12 @@ void reset_scanner(void)
     current_line = 1;
     multiline_comment_openings_counter = 0;
     pending_dot = false;
+    free(token_queue);
+    token_queue = NULL;
+    queue_head = 0;
+    queue_count = 0;
+    queue_capacity = 0;
+    in_interp_expr = false;
 }
 
 /**
@@ -284,6 +523,10 @@ void reset_scanner(void)
 int get_next_token(token_t *token)
 {
     token->first_on_new_line = false;
+    if(queue_count > 0){
+        queue_pop(token);
+        return OK;
+    }
     if (pending_dot)
     {
         pending_dot = false;
@@ -341,6 +584,25 @@ int get_next_token(token_t *token)
         switch (state)
         {
         case STATE_START:
+            if(in_interp_expr){
+                if(c == '\n' || c == EOF){
+                    free(str);
+                    return ERROR_LEX;
+                }
+                if(c == '}'){
+                    in_interp_expr = false;
+                    free(str);
+                    if(queue_push(TOKEN_R_PAREN, NULL) != OK){
+                        return ERROR_INTERNAL;
+                    }
+                    int err = read_interp_part();
+                    if(err != OK){
+                        return err;
+                    }
+                    queue_pop(token);
+                    return OK;
+                }
+            }
             if (is_multiline_comment)
             {
                 if (c == ' ')
@@ -646,6 +908,24 @@ int get_next_token(token_t *token)
             }
             else
             {
+                if(strcmp(str, "s") == 0 && c == '"'){
+                    free(str);
+                    if(in_interp_expr){
+                        return ERROR_LEX;
+                    }
+                    if(queue_push(TOKEN_L_PAREN, NULL) != OK){
+                        return ERROR_INTERNAL;
+                    }
+                    if(push_string("") != OK){
+                        return ERROR_INTERNAL;
+                    }
+                    int err = read_interp_part();
+                    if(err != OK){
+                        return err;
+                    }
+                    queue_pop(token);
+                    return OK;
+                }
                 ungetc(c, stdin);
                 if (c == '\n')
                 {
