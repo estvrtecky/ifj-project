@@ -291,7 +291,7 @@ static void ensure_return_type(Sema_ctx *ctx, const char *name)
     }
     if (info->state == FUNC_IN_PROGRESS)
     {
-        set_error(ctx, 10);
+        set_error(ctx, 6);
         return;
     }
 
@@ -455,7 +455,7 @@ static void visit_return(Sema_ctx *ctx, AST_node *return_stmt)
     AST_func_def_data *f = &ctx->func_node->as.func_def;
     if (!f->return_explicit)
     {
-        set_error(ctx, 10);
+        set_error(ctx, 6);
         return;
     }
 
