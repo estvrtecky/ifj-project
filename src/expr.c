@@ -673,18 +673,29 @@ static ErrorCode parse_call(token_t *id_token, token_t *token, AST_node **out)
     return ERROR_INTERNAL;
   }
 
-  ErrorCode err = (ErrorCode)get_next_token(token);
-  if (err != OK)
+  while (token->type == TOKEN_L_PAREN)
   {
-    AST_free(call);
-    return err;
-  }
+    size_t before = call->as.call.args.count;
 
-  err = parse_args(token, &call->as.call.args);
-  if (err != OK)
-  {
-    AST_free(call);
-    return err;
+    ErrorCode err = (ErrorCode)get_next_token(token);
+    if (err != OK)
+    {
+      AST_free(call);
+      return err;
+    }
+
+    err = parse_args(token, &call->as.call.args);
+    if (err != OK)
+    {
+      AST_free(call);
+      return err;
+    }
+
+    if (!AST_call_add_list(call, call->as.call.args.count - before))
+    {
+      AST_free(call);
+      return ERROR_INTERNAL;
+    }
   }
 
   *out = call;
@@ -849,6 +860,7 @@ static ErrorCode parse_expression(token_t *token, token_t *first_id,
       }
       if (!stack_push(&stack, make_term(T_Letter_i, leaf)))
       {
+        AST_free(leaf);
         err = ERROR_INTERNAL;
         goto cleanup;
       }

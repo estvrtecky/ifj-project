@@ -44,6 +44,7 @@ static ErrorCode parse_var_type(Data_types *data_type);
 static ErrorCode parse_func_rest(AST_node *func);
 static ErrorCode parse_method(Data_types receiver_type, const char *receiver_name, AST_node **out);
 static ErrorCode parse_extension(AST_node_list *funcs);
+static ErrorCode parse_param_lists(AST_node *func);
 
 /**
  * @brief Expects the current token to be the given token type.
@@ -517,7 +518,7 @@ static ErrorCode parse_line_statement(AST_node_list *stmt_list)
 
         return OK;
     case TOKEN_ID:
-        token_t id_token = {current.line, current.type, current.first_on_new_line, current.attribute };
+        token_t id_token = {current.line, current.type, current.first_on_new_line, current.attribute};
         current.attribute.s = NULL;
 
         err = expect(TOKEN_ID);
@@ -1048,6 +1049,35 @@ static ErrorCode parse_func_rest(AST_node *func)
     }
     func->as.func_def.body = body;
     return OK;
+}
+
+/**
+ * @brief Parses zero or more parameter lists "(a: Int)(b: Int)...".
+ * Parameters are appended to func->params, the size of each list to list_sizes.
+ */
+static ErrorCode parse_param_lists(AST_node *func)
+{
+    ErrorCode err;
+
+    while (current.type == TOKEN_L_PAREN)
+    {
+        size_t before = func->as.func_def.param_count;
+        err = expect(TOKEN_L_PAREN);
+        if (err != OK)
+        {
+            return err;
+        }
+        err = parse_param(&func);
+        if (err != OK)
+        {
+            return err;
+        }
+        err = expect(TOKEN_R_PAREN);
+        if (err != OK)
+        {
+            return err;
+        }
+    }
 }
 
 /**
