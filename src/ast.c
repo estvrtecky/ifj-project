@@ -654,17 +654,22 @@ static void dump_expr(const AST_node *node, FILE *out) {
     dump_expr(node->as.unop.operand, out);
     fputs(")", out);
     break;
-  case AST_call:
+  case AST_call: {
     fputs(node->as.call.name, out);
-    fputs("(", out);
-    for (size_t i = 0; i < node->as.call.args.count; i++) {
-      if (i > 0) {
-        fputs(", ", out);
+    size_t i = 0;
+    for (size_t l = 0; l < node->as.call.arg_list_count; l++) {
+      fputs("(", out);
+      for (size_t k = 0; k < node->as.call.arg_list_sizes[l]; k++) {
+        if (k > 0) {
+          fputs(", ", out);
+        }
+        dump_expr(node->as.call.args.items[i], out);
+        i++;
       }
-      dump_expr(node->as.call.args.items[i], out);
+      fputs(")", out);
     }
-    fputs(")", out);
     break;
+  }
   case AST_conv_int_to_double:
     fputs("int2double(", out);
     dump_expr(node->as.conv.operand, out);
