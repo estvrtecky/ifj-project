@@ -422,6 +422,18 @@ static void translate_expresion(AST_node *expresion_node){
       fprintf(out_file, "LABEL _L%d_end\n", id);
     }
     //here ends code generated on 15.11.request to prompt : dopln prosim kod pre generovanie ifj kodu pre builtin funckiu subStr, na ktoru som vcera zabudla
+    else if(strcmp(call_node->name, "$floor")==0){
+      int id= unique_id_counter++;
+      translate_expresion(call_node->args.items[0]);
+      fprintf(out_file, "POPS GF@_t1\n");
+      fprintf(out_file, "FLOAT2INT GF@_t2 GF@_t1\n");
+      fprintf(out_file, "INT2FLOAT GF@_t3 GF@_t2\n");
+      fprintf(out_file, "GT GF@_t0 GF@_t3 GF@_t1\n");
+      fprintf(out_file, "JUMPIFEQ _L%d_floor_true GF@_t0 bool@false\n", id);
+      fprintf(out_file, "SUB GF@_t3 GF@_t3 float@0x1p+0\n");
+      fprintf(out_file, "LABEL _L%d_floor_true\n", id);
+      fprintf(out_file, "PUSHS GF@_t3\n");
+    }
     else{
       for(size_t idx=0; idx<call_node->args.count; idx++){
         translate_expresion(call_node->args.items[idx]);
