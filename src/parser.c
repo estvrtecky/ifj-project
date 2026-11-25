@@ -235,17 +235,11 @@ static ErrorCode parse_func(AST_node **out)
         func_ast = AST_new_func_def(func_id, 0);
         func_ast->as.func_def.is_main = is_main;
 
-        err = expect(TOKEN_L_PAREN);
+        err = parse_param_lists(func_ast);
         if (err != OK)
+        {
             goto fail;
-
-        err = parse_params(&func_ast);
-        if (err != OK)
-            goto fail;
-
-        err = expect(TOKEN_R_PAREN);
-        if (err != OK)
-            goto fail;
+        }
 
         err = parse_func_rest(func_ast);
         if (err != OK)
@@ -630,13 +624,15 @@ static ErrorCode parse_params_c(AST_node **func_ast)
         if (err != OK)
             return err;
 
-        if (current.first_on_new_line == true && current.type==TOKEN_R_PAREN){
+        if (current.first_on_new_line == true && current.type == TOKEN_R_PAREN)
+        {
             return OK;
         }
-        else{
-        err = parse_param(func_ast);
-        if (err != OK)
-            return err;
+        else
+        {
+            err = parse_param(func_ast);
+            if (err != OK)
+                return err;
         }
         return parse_params_c(func_ast);
     case TOKEN_R_PAREN:
@@ -1067,7 +1063,7 @@ static ErrorCode parse_param_lists(AST_node *func)
         {
             return err;
         }
-        err = parse_param(&func);
+        err = parse_params(&func);
         if (err != OK)
         {
             return err;
@@ -1077,7 +1073,14 @@ static ErrorCode parse_param_lists(AST_node *func)
         {
             return err;
         }
+        size_t size = func->as.func_def.param_count - before;
+        if (!AST_func_add_list(func, size))
+        {
+            return ERROR_INTERNAL;
+        }
     }
+    func->as.func_def.has_param_list = (func->as.func_def.list_count > 0);
+    return OK;
 }
 
 /**
@@ -1129,28 +1132,12 @@ static ErrorCode parse_method(Data_types receiver_type, const char *receiver_nam
         goto fail;
     }
 
-    if (current.type == TOKEN_L_PAREN)
+    err = parse_param_lists(func);
+    if (err != OK)
     {
-        err = expect(TOKEN_L_PAREN);
-        if (err != OK)
-        {
-            goto fail;
-        }
-        err = parse_params(&func);
-        if (err != OK)
-        {
-            goto fail;
-        }
-        err = expect(TOKEN_R_PAREN);
-        if (err != OK)
-        {
-            goto fail;
-        }
+        goto fail;
     }
-    else
-    {
-        func->as.func_def.has_param_list = false;
-    }
+
     err = parse_func_rest(func);
     if (err != OK)
     {
