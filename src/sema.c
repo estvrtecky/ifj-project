@@ -41,8 +41,11 @@ static Data_types visit_expr(Sema_ctx *ctx, AST_node *exprt);
 static Data_types visit_call(Sema_ctx *ctx, AST_node *call);
 static Data_types visit_binop(Sema_ctx *ctx, AST_node *binop);
 static Data_types visit_unop(Sema_ctx *ctx, AST_node *unop);
-static Data_types visit_member(Sema_ctx *ctx, AST_node *f);
-static void visit_func(Sema_ctx *ctx, AST_node *f);
+static Data_types visit_member(Sema_ctx *ctx, AST_node *member);
+static void visit_func(Sema_ctx *ctx, AST_node *func);
+static void visit_for(Sema_ctx *ctx, AST_node *f);
+static Data_types visit_if_expr(Sema_ctx *ctx, AST_node *node);
+static bool is_zero_literal(AST_node *node);
 static Data_types tail_type(Sema_ctx *ctx, AST_node *stmt, Data_types target);
 
 static void set_error(Sema_ctx *ctx, int err_code)
@@ -248,6 +251,7 @@ static Data_types tail_type(Sema_ctx *ctx, AST_node *stmt, Data_types target)
     case AST_var_def:
     case AST_assign:
     case AST_while:
+    case AST_for:
         return TYPE_UNIT;
     default:
         set_error(ctx, 99);
@@ -499,6 +503,9 @@ static void visit_stmt(Sema_ctx *ctx, AST_node *stmt)
     case AST_while:
         visit_while(ctx, stmt);
         break;
+    case AST_for:
+        visit_for(ctx, stmt);
+        break;
     case AST_expr_stmt:
         visit_expr(ctx, stmt->as.expr_stmt.expr);
         break;
@@ -581,6 +588,9 @@ static Data_types visit_expr(Sema_ctx *ctx, AST_node *expr)
         break;
     case AST_member:
         expr->data_type = visit_member(ctx, expr);
+        break;
+    case AST_if_expr:
+        expr->data_type = visit_if_expr(ctx, expr);
         break;
     case AST_conv_int_to_double:
         break;
@@ -857,18 +867,18 @@ static Data_types try_valmem(Sema_ctx *ctx, AST_node *expr, Data_types recv_type
     return visit_call(ctx, expr);
 }
 
-static Data_types visit_member(Sema_ctx *ctx, AST_node *expr)
+static Data_types visit_member(Sema_ctx *ctx, AST_node *member)
 {
-    Data_types recv_type = visit_expr(ctx, expr->as.member.receiver);
-    bool had_parens = expr->as.member.has_parens;
+    Data_types recv_type = visit_expr(ctx, member->as.member.receiver);
+    bool had_parens = member->as.member.has_parens;
     if (failed(ctx))
     {
         return TYPE_UNKNOWN;
     }
-    char *mangled = AST_ext_name(recv_type, expr->as.member.name);
+    char *mangled = AST_ext_name(recv_type, member->as.member.name);
     if (mangled == NULL)
     {
-        Data_types t = try_valmem(ctx, expr, recv_type);
+        Data_types t = try_valmem(ctx, member, recv_type);
         if (t != TYPE_UNKNOWN || failed(ctx))
         {
             return t;
@@ -882,7 +892,7 @@ static Data_types visit_member(Sema_ctx *ctx, AST_node *expr)
     if (info == NULL)
     {
         free(mangled);
-        Data_types t = try_valmem(ctx, expr, recv_type);
+        Data_types t = try_valmem(ctx, member, recv_type);
         if (t != TYPE_UNKNOWN || failed(ctx))
         {
             return t;
@@ -890,29 +900,29 @@ static Data_types visit_member(Sema_ctx *ctx, AST_node *expr)
         set_error(ctx, 3);
         return TYPE_UNKNOWN;
     }
-    if (expr->as.member.has_parens != info->node->as.func_def.has_param_list)
+    if (member->as.member.has_parens != info->node->as.func_def.has_param_list)
     {
         free(mangled);
         set_error(ctx, 5);
         return TYPE_UNKNOWN;
     }
-    AST_node *receiver = expr->as.member.receiver;
-    AST_node_list old_args = expr->as.member.args;
-    free(expr->as.member.name);
-    expr->kind = AST_call;
-    expr->as.call.name = mangled;
+    AST_node *receiver = member->as.member.receiver;
+    AST_node_list old_args = member->as.member.args;
+    free(member->as.member.name);
+    member->kind = AST_call;
+    member->as.call.name = mangled;
     AST_node_list new_clear_list = {.capacity = 0, .count = 0, .items = NULL};
-    expr->as.call.args = new_clear_list;
-    expr->as.call.arg_list_count = 0;
-    expr->as.call.arg_list_sizes = NULL;
-    if (AST_list_push(&(expr->as.call.args), receiver) == false)
+    member->as.call.args = new_clear_list;
+    member->as.call.arg_list_count = 0;
+    member->as.call.arg_list_sizes = NULL;
+    if (AST_list_push(&(member->as.call.args), receiver) == false)
     {
         set_error(ctx, 99);
         return TYPE_UNKNOWN;
     }
     for (size_t i = 0; i < old_args.count; i++)
     {
-        if (AST_list_push(&(expr->as.call.args), old_args.items[i]) == false)
+        if (AST_list_push(&(member->as.call.args), old_args.items[i]) == false)
         {
             set_error(ctx, 99);
             return TYPE_UNKNOWN;
@@ -922,15 +932,15 @@ static Data_types visit_member(Sema_ctx *ctx, AST_node *expr)
 
     if (had_parens)
     {
-        if (!AST_call_add_list(expr, old_args.count))
+        if (!AST_call_add_list(member, old_args.count))
         {
             set_error(ctx, 99);
             return TYPE_UNKNOWN;
         }
     }
 
-    expr->as.call.has_parens = true;
-    return visit_call(ctx, expr);
+    member->as.call.has_parens = true;
+    return visit_call(ctx, member);
 }
 
 static void visit_block(Sema_ctx *ctx, AST_node *block)
@@ -951,16 +961,16 @@ static void visit_block(Sema_ctx *ctx, AST_node *block)
     st_pop_scope(ctx->st);
 }
 
-static void visit_func(Sema_ctx *ctx, AST_node *f)
+static void visit_func(Sema_ctx *ctx, AST_node *func)
 {
     if (st_push_scope(ctx->st) != SYM_OK)
     {
         set_error(ctx, 99);
         return;
     }
-    for (size_t i = 0; i < f->as.func_def.param_count; i++)
+    for (size_t i = 0; i < func->as.func_def.param_count; i++)
     {
-        AST_param p = f->as.func_def.params[i];
+        AST_param p = func->as.func_def.params[i];
         Sym_status status = st_define_var(ctx->st, p.name, p.type, false, true);
         if (status != SYM_OK)
         {
@@ -968,20 +978,135 @@ static void visit_func(Sema_ctx *ctx, AST_node *f)
             break;
         }
         const Var_symbol *sym = st_lookup_var(ctx->st, p.name);
-        f->as.func_def.params[i].sym_id = (int)st_var_id(sym);
+        func->as.func_def.params[i].sym_id = (int)st_var_id(sym);
     }
     AST_node *previous = ctx->func_node;
-    ctx->func_node = f;
+    ctx->func_node = func;
     if (!failed(ctx))
     {
-        visit_block(ctx, f->as.func_def.body);
+        visit_block(ctx, func->as.func_def.body);
     }
     if (!failed(ctx))
     {
-        check_body_end(ctx, f);
+        check_body_end(ctx, func);
     }
     ctx->func_node = previous;
     st_pop_scope(ctx->st);
+}
+
+static void visit_for(Sema_ctx *ctx, AST_node *f){
+    AST_for_data *data = &f->as.for_stmt;
+    Data_types type_from = visit_expr(ctx, data->from);
+    if(failed(ctx)){
+        return;
+    }
+    if(type_from != TYPE_INT){
+        set_error(ctx, 6);
+        return;
+    }
+    Data_types type_to = visit_expr(ctx, data->to);
+    if(failed(ctx)){
+        return;
+    }
+    if(type_to != TYPE_INT){
+        set_error(ctx, 6);
+        return;
+    }
+    if(data->step != NULL){
+        Data_types type_step = visit_expr(ctx, data->step);
+        if(failed(ctx)){
+            return;
+        }
+        if(type_step != TYPE_INT){
+            set_error(ctx, 6);
+            return;
+        }
+        if(is_zero_literal(data->step)){
+            set_error(ctx, 10);
+            return;
+        }
+    }
+    if(st_push_scope(ctx->st) != SYM_OK){
+        set_error(ctx, 99);
+        return;
+    }
+    Sym_status status = st_define_var(ctx->st, data->var, TYPE_INT, false, false);
+    if(status != SYM_OK){
+        set_error(ctx, sym_status_to_error(status));
+        st_pop_scope(ctx->st);
+        return;
+    }
+    const Var_symbol *symbol = st_lookup_var(ctx->st, data->var);
+    f->sym_id = (int)st_var_id(symbol);
+
+    for(size_t i = 0; i < data->guards.count; i++){
+        AST_node *guard = data->guards.items[i];
+        Data_types type_guard = visit_expr(ctx, guard);
+        if(failed(ctx)){
+            st_pop_scope(ctx->st);
+            return;
+        }
+        if(type_guard != TYPE_BOOLEAN){
+            set_error(ctx, 6);
+            st_pop_scope(ctx->st);
+            return;
+        }
+    }
+    visit_block(ctx, data->body);
+    st_pop_scope(ctx->st);
+}
+
+static Data_types visit_if_expr(Sema_ctx *ctx, AST_node *node){
+    AST_if_expr_data *data = &node->as.if_expr;
+    Data_types type_cond = visit_expr(ctx, data->cond);
+    if(failed(ctx)){
+        return TYPE_UNKNOWN;
+    }
+    if(type_cond != TYPE_BOOLEAN){
+        set_error(ctx, 6);
+        return TYPE_UNKNOWN;
+    }
+    Data_types type_then = visit_expr(ctx, data->then_expr);
+    if(failed(ctx)){
+        return TYPE_UNKNOWN;
+    }
+    Data_types type_else = visit_expr(ctx, data->else_expr);
+    if(failed(ctx)){
+        return TYPE_UNKNOWN;
+    }
+    if((type_then == TYPE_INT) && (type_else == TYPE_DOUBLE)){
+        coerce(ctx,TYPE_DOUBLE, &data->then_expr, 6);
+        if(failed(ctx)){
+            return TYPE_UNKNOWN;
+        }
+        return TYPE_DOUBLE;
+    }
+    if(type_then == TYPE_DOUBLE && type_else == TYPE_INT){
+        coerce(ctx, TYPE_DOUBLE, &data->else_expr, 6);
+        if(failed(ctx)){
+            return TYPE_UNKNOWN;
+        }
+        return TYPE_DOUBLE;
+    }
+    if(type_then != type_else){
+        set_error(ctx, 6);
+        return TYPE_UNKNOWN;
+    }
+    return type_then;
+}
+
+static bool is_zero_literal(AST_node *node){
+    if(node->kind == AST_int_lit){
+        return (node->as.int_lit.value == 0);
+    }
+    if(node->kind == AST_unop){
+        AST_op_type op = node->as.unop.op;
+        AST_node *operand = node->as.unop.operand;
+        if((op == OP_neg || op == OP_pos) && operand->kind == AST_int_lit){
+            return (operand->as.int_lit.value == 0);
+        }
+    }
+    return false;
 }
 
 static void pass2_bodies(Sema_ctx *ctx, AST_node *program)
@@ -1032,3 +1157,4 @@ int sema_analyze(AST_node *program)
     st_free(ctx.st);
     return ctx.error;
 }
+
