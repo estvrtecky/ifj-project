@@ -38,7 +38,7 @@ typedef enum {
   AST_call,
   AST_conv_int_to_double,
   AST_member,
-  // Reserved for extensions, not produced yet
+  // CONTROL extension
   AST_for,
   AST_if_expr,
 } AST_node_type;
@@ -201,6 +201,23 @@ typedef struct {
   bool has_parens;
 } AST_member_data;
 
+typedef struct {
+  char *var; // Control variable name (copy)
+  AST_node *from;
+  AST_node *to;
+  AST_node *step;       // NULL = step 1
+  bool inclusive;       // true = "to", false = "until"
+  AST_node_list guards; // "if cond" lines, Boolean expressions
+  AST_node *body;       // block
+  int sym_id;           // control variable id, filled by sema (-1 by default)
+} AST_for_data;
+
+typedef struct {
+  AST_node *cond;
+  AST_node *then_expr;
+  AST_node *else_expr; // always present (else is mandatory)
+} AST_if_expr_data;
+
 struct AST_node {
   AST_node_type kind; // Determines which member of the as is valid
   size_t line;        // Source code line (starting from 1), for error messages
@@ -232,6 +249,8 @@ struct AST_node {
     AST_call_data call;
     AST_conv_int_to_double_data conv;
     AST_member_data member;
+    AST_for_data for_stmt;
+    AST_if_expr_data if_expr;
   } as; // Payload depends on the kind. AST_unit_lit has no payload;
 };
 
@@ -297,6 +316,12 @@ AST_node *AST_new_member(AST_node *receiver, const char *name, bool has_parens,
 // returns a new string "Int$twice"; the caller must release it using free();
 // returns NULL on error
 char *AST_ext_name(Data_types type, const char *method);
+
+AST_node *AST_new_for(const char *var, AST_node *from, AST_node *to,
+                      AST_node *step, bool inclusive, AST_node *body,
+                      size_t line);
+AST_node *AST_new_if_expr(AST_node *cond, AST_node *then_expr,
+                          AST_node *else_expr, size_t line);
 #ifdef __cplusplus
 }
 #endif
