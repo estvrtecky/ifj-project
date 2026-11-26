@@ -82,37 +82,24 @@ static int queue_capacity = 0;
 static bool in_interp_expr = false; // Right now tokens are reading inside ${ ... }
 
 static const keyword_t keywords[] = {
-    {"def", TOKEN_DEF},
-    {"do", TOKEN_DO},
-    {"Double", TOKEN_TYPE_DOUBLE},
-    {"else", TOKEN_ELSE},
-    {"if", TOKEN_IF},
-    {"import", TOKEN_IMPORT},
-    {"Int", TOKEN_TYPE_INT},
-    {"return", TOKEN_RETURN},
-    {"String", TOKEN_TYPE_STRING},
-    {"then", TOKEN_THEN},
-    {"Unit", TOKEN_TYPE_UNIT},
-    {"val", TOKEN_VAL},
-    {"var", TOKEN_VAR},
-    {"while", TOKEN_WHILE},
-    {"Boolean", TOKEN_TYPE_BOOLEAN},
-    {"case", TOKEN_CASE},
-    {"class", TOKEN_CLASS},
-    {"extension", TOKEN_EXTENSION},
-    {"for", TOKEN_FOR},
-    {"List", TOKEN_LIST},
-    {"match", TOKEN_MATCH},
-    {"type", TOKEN_TYPE},
-    {"true", TOKEN_TRUE},
-    {"false", TOKEN_FALSE},
+    {"def", TOKEN_DEF},      {"do", TOKEN_DO},          {"Double", TOKEN_TYPE_DOUBLE},
+    {"else", TOKEN_ELSE},    {"if", TOKEN_IF},          {"import", TOKEN_IMPORT},
+    {"Int", TOKEN_TYPE_INT}, {"return", TOKEN_RETURN},  {"String", TOKEN_TYPE_STRING},
+    {"then", TOKEN_THEN},    {"Unit", TOKEN_TYPE_UNIT}, {"val", TOKEN_VAL},
+    {"var", TOKEN_VAR},      {"while", TOKEN_WHILE},    {"Boolean", TOKEN_TYPE_BOOLEAN},
+    {"case", TOKEN_CASE},    {"class", TOKEN_CLASS},    {"extension", TOKEN_EXTENSION},
+    {"for", TOKEN_FOR},      {"List", TOKEN_LIST},      {"match", TOKEN_MATCH},
+    {"type", TOKEN_TYPE},    {"true", TOKEN_TRUE},      {"false", TOKEN_FALSE},
 };
 
-static int queue_push(token_type_t type, char *s){
-    if(queue_count == queue_capacity){
-        int new_capacity = (queue_capacity == 0)? 16 : 2 * queue_capacity;
+static int queue_push(token_type_t type, char *s)
+{
+    if (queue_count == queue_capacity)
+    {
+        int new_capacity = (queue_capacity == 0) ? 16 : 2 * queue_capacity;
         void *tmp = realloc(token_queue, new_capacity * sizeof(token_t));
-        if(tmp == NULL){
+        if (tmp == NULL)
+        {
             free(s);
             return ERROR_INTERNAL;
         }
@@ -127,34 +114,43 @@ static int queue_push(token_type_t type, char *s){
     return OK;
 }
 
-static int queue_pop(token_t *out){
+static int queue_pop(token_t *out)
+{
     *out = token_queue[queue_head++];
-    if(queue_head == queue_count){
+    if (queue_head == queue_count)
+    {
         queue_head = 0;
         queue_count = 0;
     }
     return OK;
 }
 
-static int push_string(char *text){
+static int push_string(char *text)
+{
     char *copy = malloc(strlen(text) + 1);
-    if(copy == NULL){
+    if (copy == NULL)
+    {
         return ERROR_INTERNAL;
     }
     strcpy(copy, text);
     int error_code = queue_push(TOKEN_STRING, copy);
-    if(error_code != OK){
+    if (error_code != OK)
+    {
         return ERROR_INTERNAL;
     }
     return error_code;
 }
 
-static int flush(char *buffer, size_t *lenght){
-    if(*lenght > 0){
-        if(queue_push(TOKEN_ADD, NULL) != OK){
+static int flush(char *buffer, size_t *lenght)
+{
+    if (*lenght > 0)
+    {
+        if (queue_push(TOKEN_ADD, NULL) != OK)
+        {
             return ERROR_INTERNAL;
         }
-        if(push_string(buffer) != OK){
+        if (push_string(buffer) != OK)
+        {
             return ERROR_INTERNAL;
         }
         *lenght = 0;
@@ -163,79 +159,97 @@ static int flush(char *buffer, size_t *lenght){
     return OK;
 }
 
-static int push_tostr_open(){
-    if(queue_push(TOKEN_ADD, NULL) != OK){
+static int push_tostr_open()
+{
+    if (queue_push(TOKEN_ADD, NULL) != OK)
+    {
         return ERROR_INTERNAL;
     }
-    char *name =  malloc(6 * sizeof(char));
-    if(name == NULL){
+    char *name = malloc(6 * sizeof(char));
+    if (name == NULL)
+    {
         return ERROR_INTERNAL;
     }
     strcpy(name, "toStr");
-    if(queue_push(TOKEN_ID, name) != OK){
+    if (queue_push(TOKEN_ID, name) != OK)
+    {
         return ERROR_INTERNAL;
     }
-    if(queue_push(TOKEN_L_PAREN, NULL) != OK){
+    if (queue_push(TOKEN_L_PAREN, NULL) != OK)
+    {
         return ERROR_INTERNAL;
     }
     return OK;
 }
 
-static int read_interp_part(){
+static int read_interp_part()
+{
     char *buffer = calloc(16, sizeof(char));
-    if(buffer == NULL){
+    if (buffer == NULL)
+    {
         return ERROR_INTERNAL;
     }
     size_t length = 0;
     size_t capacity = 16;
-    while(true){
+    while (true)
+    {
         int c = getchar();
-        if(c == '"'){
-            if(flush(buffer, &length) != OK){
+        if (c == '"')
+        {
+            if (flush(buffer, &length) != OK)
+            {
                 free(buffer);
                 return ERROR_INTERNAL;
             }
-            if(queue_push(TOKEN_R_PAREN, NULL) != OK){
+            if (queue_push(TOKEN_R_PAREN, NULL) != OK)
+            {
                 free(buffer);
                 return ERROR_INTERNAL;
             }
             free(buffer);
             return OK;
         }
-        else if(c == '\n' || c == EOF){
+        else if (c == '\n' || c == EOF)
+        {
             free(buffer);
             return ERROR_LEX;
         }
-        else if(c == '\\'){
+        else if (c == '\\')
+        {
             c = getchar();
             switch (c)
             {
             case 'n':
-                if(append_char(&buffer, &length, &capacity, '\n') != OK){
+                if (append_char(&buffer, &length, &capacity, '\n') != OK)
+                {
                     free(buffer);
                     return ERROR_INTERNAL;
                 }
                 break;
             case 'r':
-                if(append_char(&buffer, &length, &capacity, '\r') != OK){
+                if (append_char(&buffer, &length, &capacity, '\r') != OK)
+                {
                     free(buffer);
                     return ERROR_INTERNAL;
                 }
                 break;
             case 't':
-                if(append_char(&buffer, &length, &capacity, '\t') != OK){
+                if (append_char(&buffer, &length, &capacity, '\t') != OK)
+                {
                     free(buffer);
                     return ERROR_INTERNAL;
                 }
                 break;
             case '"':
-                if(append_char(&buffer, &length, &capacity, '"') != OK){
+                if (append_char(&buffer, &length, &capacity, '"') != OK)
+                {
                     free(buffer);
                     return ERROR_INTERNAL;
                 }
                 break;
             case '\\':
-                if(append_char(&buffer, &length, &capacity, '\\') != OK){
+                if (append_char(&buffer, &length, &capacity, '\\') != OK)
+                {
                     free(buffer);
                     return ERROR_INTERNAL;
                 }
@@ -246,20 +260,26 @@ static int read_interp_part(){
             }
             continue;
         }
-        else if(c == '$'){
+        else if (c == '$')
+        {
             int d = getchar();
-            if(d == '$'){
-                if(append_char(&buffer, &length, &capacity, '$') != OK){
+            if (d == '$')
+            {
+                if (append_char(&buffer, &length, &capacity, '$') != OK)
+                {
                     free(buffer);
                     return ERROR_INTERNAL;
                 }
             }
-            else if( d == '{'){
-                if(flush(buffer, &length) != OK){
+            else if (d == '{')
+            {
+                if (flush(buffer, &length) != OK)
+                {
                     free(buffer);
                     return ERROR_INTERNAL;
                 }
-                if(push_tostr_open() != OK){
+                if (push_tostr_open() != OK)
+                {
                     free(buffer);
                     return ERROR_INTERNAL;
                 }
@@ -267,71 +287,84 @@ static int read_interp_part(){
                 free(buffer);
                 return OK;
             }
-            else if(isalpha(d) || d == '_'){
-                if(flush(buffer, &length) != OK){
+            else if (isalpha(d) || d == '_')
+            {
+                if (flush(buffer, &length) != OK)
+                {
                     free(buffer);
                     return ERROR_INTERNAL;
                 }
                 char *name = calloc(16, sizeof(char));
-                if(name == NULL){
+                if (name == NULL)
+                {
                     free(buffer);
                     return ERROR_INTERNAL;
                 }
                 size_t name_length = 0, name_capacity = 16;
-                if(append_char(&name, &name_length, &name_capacity, d) != OK){
+                if (append_char(&name, &name_length, &name_capacity, d) != OK)
+                {
                     free(buffer);
                     free(name);
                     return ERROR_INTERNAL;
                 }
-                do{
+                do
+                {
                     d = getchar();
-                    if(isalnum(d) || d == '_'){
-                        if(append_char(&name, &name_length, &name_capacity, d) != OK){
+                    if (isalnum(d) || d == '_')
+                    {
+                        if (append_char(&name, &name_length, &name_capacity, d) != OK)
+                        {
                             free(buffer);
                             free(name);
                             return ERROR_INTERNAL;
                         }
                     }
-                    else{
+                    else
+                    {
                         ungetc(d, stdin);
                         break;
                     }
-                }while(isalnum(d) || d == '_');
-                if(strcmp(name, "_") == 0 || get_keyword(name) != TOKEN_ID){
+                } while (isalnum(d) || d == '_');
+                if (strcmp(name, "_") == 0 || get_keyword(name) != TOKEN_ID)
+                {
                     free(name);
                     free(buffer);
                     return ERROR_LEX;
                 }
 
-                if(push_tostr_open() != OK){
+                if (push_tostr_open() != OK)
+                {
                     free(buffer);
                     free(name);
                     return ERROR_INTERNAL;
                 }
-                if(queue_push(TOKEN_ID, name) != OK){
+                if (queue_push(TOKEN_ID, name) != OK)
+                {
                     free(buffer);
                     return ERROR_INTERNAL;
                 }
-                if(queue_push(TOKEN_R_PAREN, NULL) != OK){
+                if (queue_push(TOKEN_R_PAREN, NULL) != OK)
+                {
                     free(buffer);
                     return ERROR_INTERNAL;
                 }
             }
-            else{
+            else
+            {
                 free(buffer);
                 return ERROR_LEX;
             }
         }
-        else {
-            if(append_char(&buffer, &length, &capacity, c) != OK){
+        else
+        {
+            if (append_char(&buffer, &length, &capacity, c) != OK)
+            {
                 free(buffer);
                 return ERROR_INTERNAL;
             }
         }
     }
 }
-
-
 
 /**
  * @brief function saves char to array
@@ -361,7 +394,10 @@ static int append_char(char **str, size_t *length, size_t *capacity, char c)
 }
 
 /* Tento usek kodu(funckia finalize string) bola vygenerovana AI(Claude Sonnet 5.5) dna 12.11.2026
-pisem scanner a teraz sa objavila tato vytka od kapitana potom co nechal cely nas repozitar prejst ai. "Reťazcový token obsahuje úvodzovky a nedekódované escape sekvencie ("neg\n" vrátane " a \+n). Má vrátiť obsah bez úvodzoviek s dekódovanými escapes, pri """ obsah doslovne bez trojitých úvodzoviek". tu je nas kod co aktualne je na githube a patri scanneru. Napis mi funckiu ktora ocisti string od ""*
+pisem scanner a teraz sa objavila tato vytka od kapitana potom co nechal cely nas repozitar prejst ai. "Reťazcový token
+obsahuje úvodzovky a nedekódované escape sekvencie ("neg\n" vrátane " a \+n). Má vrátiť obsah bez úvodzoviek s
+dekódovanými escapes, pri """ obsah doslovne bez trojitých úvodzoviek". tu je nas kod co aktualne je na githube a patri
+scanneru. Napis mi funckiu ktora ocisti string od ""*
 !!! Funkcia bola dna 24.11. manualne upravena Andreou Valekovou, miesto upravi je oznacene "*" */
 /**
  * @brief Vytvorí dekódovaný obsah reťazca (bez úvodzoviek, s dekódovanými escapes)
@@ -523,7 +559,8 @@ void reset_scanner(void)
 int get_next_token(token_t *token)
 {
     token->first_on_new_line = false;
-    if(queue_count > 0){
+    if (queue_count > 0)
+    {
         queue_pop(token);
         return OK;
     }
@@ -584,19 +621,24 @@ int get_next_token(token_t *token)
         switch (state)
         {
         case STATE_START:
-            if(in_interp_expr){
-                if(c == '\n' || c == EOF){
+            if (in_interp_expr)
+            {
+                if (c == '\n' || c == EOF)
+                {
                     free(str);
                     return ERROR_LEX;
                 }
-                if(c == '}'){
+                if (c == '}')
+                {
                     in_interp_expr = false;
                     free(str);
-                    if(queue_push(TOKEN_R_PAREN, NULL) != OK){
+                    if (queue_push(TOKEN_R_PAREN, NULL) != OK)
+                    {
                         return ERROR_INTERNAL;
                     }
                     int err = read_interp_part();
-                    if(err != OK){
+                    if (err != OK)
+                    {
                         return err;
                     }
                     queue_pop(token);
@@ -908,19 +950,24 @@ int get_next_token(token_t *token)
             }
             else
             {
-                if(strcmp(str, "s") == 0 && c == '"'){
+                if (strcmp(str, "s") == 0 && c == '"')
+                {
                     free(str);
-                    if(in_interp_expr){
+                    if (in_interp_expr)
+                    {
                         return ERROR_LEX;
                     }
-                    if(queue_push(TOKEN_L_PAREN, NULL) != OK){
+                    if (queue_push(TOKEN_L_PAREN, NULL) != OK)
+                    {
                         return ERROR_INTERNAL;
                     }
-                    if(push_string("") != OK){
+                    if (push_string("") != OK)
+                    {
                         return ERROR_INTERNAL;
                     }
                     int err = read_interp_part();
-                    if(err != OK){
+                    if (err != OK)
+                    {
                         return err;
                     }
                     queue_pop(token);
@@ -1419,18 +1466,22 @@ int get_next_token(token_t *token)
             else if (c == '"')
             {
                 int next_char = getchar();
-                if(next_char== '"'){
-                    state=STATE_Q9;
+                if (next_char == '"')
+                {
+                    state = STATE_Q9;
                     append_char(&str, &length, &capacity, (char)c);
-                    if(next_char != EOF){
+                    if (next_char != EOF)
+                    {
                         ungetc(next_char, stdin);
                     }
                 }
-                else{
-                    if(next_char != EOF){
+                else
+                {
+                    if (next_char != EOF)
+                    {
                         ungetc(next_char, stdin);
                     }
-                    
+
                     if (append_char(&str, &length, &capacity, (char)c) != OK)
                     {
                         free(str);
@@ -1443,10 +1494,7 @@ int get_next_token(token_t *token)
                         return ERROR_INTERNAL;
                     }
                     return OK;
-
                 }
-                
-                
             }
             else
             {

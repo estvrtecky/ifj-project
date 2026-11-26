@@ -950,7 +950,10 @@ static ErrorCode parse_var_type(Data_types *data_type)
  *
  * @returns ErrorCode - OK, ERROR_LEX, ERROR_INTERNAL
  */
-ErrorCode parser_init(void) { return get_next_token(&current); }
+ErrorCode parser_init(void)
+{
+    return get_next_token(&current);
+}
 
 /**
  * @brief Parses the program.
