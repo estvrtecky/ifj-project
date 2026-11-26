@@ -96,6 +96,7 @@ static bool is_expr_kind(AST_node_type type) {
   case AST_call:
   case AST_conv_int_to_double:
   case AST_member:
+  case AST_if_expr:
     return true;
 
   default:
@@ -475,12 +476,23 @@ void AST_free(AST_node *node) {
     free(node->as.member.name);
     free_list(&node->as.member.args);
     break;
+  case AST_for:
+    free(node->as.for_stmt.var);
+    AST_free(node->as.for_stmt.from);
+    AST_free(node->as.for_stmt.to);
+    AST_free(node->as.for_stmt.step);
+    free_list(&node->as.for_stmt.guards);
+    AST_free(node->as.for_stmt.body);
+    break;
+  case AST_if_expr:
+    AST_free(node->as.if_expr.cond);
+    AST_free(node->as.if_expr.then_expr);
+    AST_free(node->as.if_expr.else_expr);
+    break;
   case AST_int_lit:
   case AST_double_lit:
   case AST_bool_lit:
   case AST_unit_lit:
-  case AST_for:
-  case AST_if_expr:
     break;
   default:
     break;
@@ -531,6 +543,10 @@ const char *AST_kind_name(AST_node_type kind) {
     return "UNIT_LIT";
   case AST_member:
     return "MEMBER";
+  case AST_for:
+    return "FOR";
+  case AST_if_expr:
+    return "IF_EXPR";
   default:
     return "?";
   }
@@ -691,6 +707,18 @@ static void dump_expr(const AST_node *node, FILE *out) {
       fputc(')', out);
     }
     break;
+  case AST_if_expr:
+    fputs("(if", out);
+    fputs(" ", out);
+    dump_expr(node->as.if_expr.cond, out);
+    fputs(" then", out);
+    fputs(" ", out);
+    dump_expr(node->as.if_expr.then_expr, out);
+    fputs(" else", out);
+    fputs(" ", out);
+    dump_expr(node->as.if_expr.else_expr, out);
+    fputc(')', out);
+    break;
   default:
     fputs("<not an expression>", out);
     break;
@@ -811,6 +839,26 @@ static void dump_node(const AST_node *node, FILE *out, int depth) {
     fputs("EXPR_STMT\n", out);
     dump_node(node->as.expr_stmt.expr, out, depth + 1);
     break;
+  case AST_for:
+    fputs("FOR ", out);
+    fputs(node->as.for_stmt.var, out);
+    fputs(" <- ", out);
+    dump_expr(node->as.for_stmt.from, out);
+    fputs(node->as.for_stmt.inclusive ? " to " : " until ", out);
+    dump_expr(node->as.for_stmt.to, out);
+    if (node->as.for_stmt.step != NULL) {
+      fputs(" by ", out);
+      dump_expr(node->as.for_stmt.step, out);
+    }
+    fputs("\n", out);
+    for (size_t i = 0; i < node->as.for_stmt.guards.count; i++) {
+      dump_indent(out, depth + 1);
+      fputs("IF ", out);
+      dump_expr(node->as.for_stmt.guards.items[i], out);
+      fputs("\n", out);
+    }
+    dump_node(node->as.for_stmt.body, out, depth + 1);
+    break;
   default:
     fputs(AST_kind_name(node->kind), out);
     fputs("\n", out);
@@ -861,4 +909,47 @@ char *AST_ext_name(Data_types type, const char *method) {
   }
   snprintf(result, length, "%s$%s", type_text, method);
   return result;
+}
+AST_node *AST_new_for(const char *var, AST_node *from, AST_node *to,
+                      AST_node *step, bool inclusive, AST_node *body,
+                      size_t line) {
+  AST_node *node = AST_new(AST_for, line);
+  if (node == NULL) {
+    AST_free(from);
+    AST_free(to);
+    AST_free(step);
+    AST_free(body);
+    return NULL;
+  }
+  node->as.for_stmt.var = copy_string(var);
+  if (node->as.for_stmt.var == NULL) {
+    free(node);
+    AST_free(from);
+    AST_free(to);
+    AST_free(step);
+    AST_free(body);
+    return NULL;
+  }
+  node->as.for_stmt.from = from;
+  node->as.for_stmt.to = to;
+  node->as.for_stmt.step = step;
+  node->as.for_stmt.body = body;
+  node->as.for_stmt.inclusive = inclusive;
+  node->as.for_stmt.sym_id = -1;
+  return node;
+}
+
+AST_node *AST_new_if_expr(AST_node *cond, AST_node *then_expr,
+                          AST_node *else_expr, size_t line) {
+  AST_node *node = AST_new(AST_if_expr, line);
+  if (node == NULL) {
+    AST_free(cond);
+    AST_free(then_expr);
+    AST_free(else_expr);
+    return NULL;
+  }
+  node->as.if_expr.cond = cond;
+  node->as.if_expr.then_expr = then_expr;
+  node->as.if_expr.else_expr = else_expr;
+  return node;
 }
