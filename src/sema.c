@@ -274,7 +274,8 @@ static void analyze_func(Sema_ctx *ctx, AST_node *f)
     info->state = FUNC_DONE;
 }
 
-// This block was co-developed with Claude Sonet 5.5 with promt: "Can you help me with this function not working properly" - Suggested functions st_attach_scopes & st_detach_scopes in symtable
+// This block was co-developed with Claude Sonet 5.5 with promt: "Can you help me with this function not working
+// properly" - Suggested functions st_attach_scopes & st_detach_scopes in symtable
 
 static void ensure_return_type(Sema_ctx *ctx, const char *name)
 {
@@ -530,8 +531,7 @@ static Data_types visit_expr(Sema_ctx *ctx, AST_node *expr)
     case AST_bool_lit:
         expr->data_type = TYPE_BOOLEAN;
         break;
-    case AST_id:
-    {
+    case AST_id: {
         const Var_symbol *symbol = st_lookup_var(ctx->st, expr->as.id.name);
         if (symbol == NULL)
         {
@@ -603,11 +603,10 @@ static Data_types visit_binop(Sema_ctx *ctx, AST_node *binop)
     {
         return TYPE_UNKNOWN;
     }
-    if (binop->as.binop.op == OP_add || binop->as.binop.op == OP_sub || binop->as.binop.op == OP_mul || binop->as.binop.op == OP_div)
+    if (binop->as.binop.op == OP_add || binop->as.binop.op == OP_sub || binop->as.binop.op == OP_mul ||
+        binop->as.binop.op == OP_div)
     {
-        if (binop->as.binop.op == OP_add &&
-            l == TYPE_STRING &&
-            r == TYPE_STRING)
+        if (binop->as.binop.op == OP_add && l == TYPE_STRING && r == TYPE_STRING)
         {
             return TYPE_STRING;
         }
@@ -630,7 +629,8 @@ static Data_types visit_binop(Sema_ctx *ctx, AST_node *binop)
         set_error(ctx, 6);
         return TYPE_UNKNOWN;
     }
-    if (binop->as.binop.op == OP_lt || binop->as.binop.op == OP_le || binop->as.binop.op == OP_gt || binop->as.binop.op == OP_ge)
+    if (binop->as.binop.op == OP_lt || binop->as.binop.op == OP_le || binop->as.binop.op == OP_gt ||
+        binop->as.binop.op == OP_ge)
     {
         if (is_numeric(l) && is_numeric(r))
         {

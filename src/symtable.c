@@ -51,20 +51,18 @@ typedef struct
     Data_types return_type;
 } Builtin_func;
 
-static const Builtin_func builtin_func_array[] = {
-    {"print",       1, {TYPE_ANY},      TYPE_UNIT},
-    {"readLine",    0, {TYPE_UNKNOWN},  TYPE_STRING},
-    {"readInt",     0, {TYPE_UNKNOWN},  TYPE_INT},
-    {"readDouble",  0, {TYPE_UNKNOWN},  TYPE_DOUBLE},
-    {"toStr",       1, {TYPE_ANY},      TYPE_STRING},
-    {"toInt",       1, {TYPE_DOUBLE},   TYPE_INT},
-    {"strLength",   1, {TYPE_STRING},   TYPE_INT},
-    {"subStr",      3, {TYPE_STRING,    TYPE_INT, TYPE_INT}, TYPE_STRING},
-    {"ord",         2, {TYPE_STRING,    TYPE_INT}, TYPE_INT},
-    {"chr",         1, {TYPE_INT},      TYPE_STRING},
-    {"readBoolean", 0, {TYPE_UNKNOWN},  TYPE_BOOLEAN},
-    {"$floor", 1, {TYPE_DOUBLE}, TYPE_DOUBLE}
-};
+static const Builtin_func builtin_func_array[] = {{"print", 1, {TYPE_ANY}, TYPE_UNIT},
+                                                  {"readLine", 0, {TYPE_UNKNOWN}, TYPE_STRING},
+                                                  {"readInt", 0, {TYPE_UNKNOWN}, TYPE_INT},
+                                                  {"readDouble", 0, {TYPE_UNKNOWN}, TYPE_DOUBLE},
+                                                  {"toStr", 1, {TYPE_ANY}, TYPE_STRING},
+                                                  {"toInt", 1, {TYPE_DOUBLE}, TYPE_INT},
+                                                  {"strLength", 1, {TYPE_STRING}, TYPE_INT},
+                                                  {"subStr", 3, {TYPE_STRING, TYPE_INT, TYPE_INT}, TYPE_STRING},
+                                                  {"ord", 2, {TYPE_STRING, TYPE_INT}, TYPE_INT},
+                                                  {"chr", 1, {TYPE_INT}, TYPE_STRING},
+                                                  {"readBoolean", 0, {TYPE_UNKNOWN}, TYPE_BOOLEAN},
+                                                  {"$floor", 1, {TYPE_DOUBLE}, TYPE_DOUBLE}};
 
 static void free_func_symbol(void *func_symbol)
 {
@@ -96,7 +94,8 @@ static Var_symbol *find_var(const Symtable *symtable, const char *name)
     return NULL;
 }
 
-static Func_symbol *create_func_symbol(size_t param_count, const Data_types *param_types, Data_types return_type, bool return_explicit, bool builtin)
+static Func_symbol *create_func_symbol(size_t param_count, const Data_types *param_types, Data_types return_type,
+                                       bool return_explicit, bool builtin)
 {
     Func_symbol *func_symbol = malloc(sizeof(Func_symbol));
     if (func_symbol == NULL)
@@ -149,7 +148,9 @@ Symtable *st_init(void)
 
     for (size_t i = 0; i < (sizeof(builtin_func_array) / sizeof(builtin_func_array[0])); i++)
     {
-        Func_symbol *func_symbol = create_func_symbol(builtin_func_array[i].param_count, builtin_func_array[i].param_types, builtin_func_array[i].return_type, true, true);
+        Func_symbol *func_symbol =
+            create_func_symbol(builtin_func_array[i].param_count, builtin_func_array[i].param_types,
+                               builtin_func_array[i].return_type, true, true);
         if (func_symbol == NULL)
         {
             st_free(symtable);
@@ -318,7 +319,8 @@ size_t st_var_id(const Var_symbol *var_symbol)
     return var_symbol->unique_id;
 }
 
-Sym_status st_define_func(Symtable *symtable, const char *name, size_t param_count, const Data_types *param_types, Data_types return_type, bool return_explicit)
+Sym_status st_define_func(Symtable *symtable, const char *name, size_t param_count, const Data_types *param_types,
+                          Data_types return_type, bool return_explicit)
 {
     if (symtable == NULL)
     {
@@ -443,10 +445,10 @@ bool st_func_builtin(const Func_symbol *func_symbol)
 
 Sym_status st_detach_scopes(Symtable *symtable, Scope **output)
 {
-    if(symtable == NULL)
+    if (symtable == NULL)
     {
         return SYM_MEM_ERROR;
-    } 
+    }
     if (output == NULL)
     {
         return SYM_MEM_ERROR;
@@ -458,7 +460,7 @@ Sym_status st_detach_scopes(Symtable *symtable, Scope **output)
 
 Sym_status st_attach_scopes(Symtable *symtable, Scope *saved)
 {
-    if(symtable == NULL)
+    if (symtable == NULL)
     {
         return SYM_MEM_ERROR;
     }
@@ -470,4 +472,4 @@ Sym_status st_attach_scopes(Symtable *symtable, Scope *saved)
     return SYM_OK;
 }
 
-// End of block that was developed with help of Claude Sonet 5.5 
+// End of block that was developed with help of Claude Sonet 5.5

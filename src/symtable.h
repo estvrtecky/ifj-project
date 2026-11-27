@@ -49,7 +49,8 @@ extern "C"
     bool st_var_param(const Var_symbol *var_symbol);
     size_t st_var_id(const Var_symbol *var_symbol);
 
-    Sym_status st_define_func(Symtable *symtable, const char *name, size_t param_count, const Data_types *param_types, Data_types return_type, bool return_explicit);
+    Sym_status st_define_func(Symtable *symtable, const char *name, size_t param_count, const Data_types *param_types,
+                              Data_types return_type, bool return_explicit);
     const Func_symbol *st_lookup_func(const Symtable *symtable, const char *name);
     Sym_status st_set_return_type(Symtable *symtable, const char *name, Data_types return_type);
 

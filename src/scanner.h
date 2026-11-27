@@ -85,8 +85,7 @@ typedef struct
     int line;
     token_type_t type;
     bool first_on_new_line;
-    union
-    {
+    union {
         char *s;
         int i;
         double d;
