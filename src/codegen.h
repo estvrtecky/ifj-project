@@ -1,3 +1,8 @@
+/**
+ * Author : Andrea Valekova xvaleka00
+ * brief : this file generates ifjcode26 which will be translated by ic26int
+ */
+
 #ifndef CODEGEN_H
 #define CODEGEN_H
 
