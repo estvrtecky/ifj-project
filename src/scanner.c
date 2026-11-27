@@ -1,3 +1,10 @@
+/*
+    # Project: Implementation of the IFJ26 imperative language compiler
+    # File:    scanner.c
+    # Brief:   scanner
+    # Authors: Erik Stvrtecky (xstvrte00), Andrea Váleková (xvaleka00) and Adam Valluš (xvallua00)
+    #
+*/
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
